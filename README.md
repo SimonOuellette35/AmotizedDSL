@@ -37,8 +37,9 @@ This program syntax uses the following special tokens:
 
 > EOS_TOKEN = 3           # End of sentence
 
-### Reference IDs
-Referring to previously generated state variables is done by using a token value equal to N+idx, where N is the number of primitives in the DSL, and idx is the 0-indexed number of the state variable. The output of the first instruction step is N+0, the output of the second instruction step is N+1, and so forth. This token value, or "reference ID", can be used anywhere there is a primitive argument to be set.
+### Reference IDs & Object attributes
+
+Referring to previously generated state variables is done by using a token value equal to N+idx, where N is the number of primitives + the number of special tokens, and idx is the 0-indexed number of the state variable. The output of the first instruction step is N+0, the output of the second instruction step is N+1, and so forth. This token value, or "reference ID", can be used anywhere there is a primitive argument to be set.
 
 Note that reference ID are essentially objects, in an object-oriented programming sense. They can either be used as is, when the argument type is of the object being referred to (e.g., a Grid instance), but it is also possible to access some of their attributes. The attributes are at the end of the DSL list:
 
@@ -62,13 +63,27 @@ Note that reference ID are essentially objects, in an object-oriented programmin
 
 > '.ul_y': get_ul_y
 
-In other to use 
+In order to use an attribute, you simply use the corresponding token value of the attribute right after the reference ID.
+
+For example, [39, 36] will be N+0.height() if 39 is the N+0 reference ID and 36 is the token ID corresponding to '.height'.
+
+This means that an instruction step that consists of cropping some grid B's (reference ID N+1=40) upper left region based on the dimensions of some grid A (reference ID N+0=39) would look like this:
+
+[<SOS_token>, 'crop', <SOP_TOKEN>, 40, <ARG_SEP_TOKEN>, 4, <ARG_SEP_TOKEN>, 4, <ARG_SEP_TOKEN>, 39, 35, <ARG_SEP_TOKEN>, 39, 36, <EOS_TOKEN>]
+
+Note: token ID 4 corresponds to the constant 0. Tokens 35 and 36 are assumed to map to '.width' and '.height' respectively.
 
 ### Structure of a program
 
+**TODO**
+
 ### Execution of a program
 
+**TODO**
+
 ### Example
+
+**TODO**
 
 ## Memory management
 
@@ -79,3 +94,9 @@ This process also serves an additional purpose: it removes noise from the progra
 This is why a typical program contains a lot of del instructions, which are of format: [<SOS_TOKEN>, 'del', <SOP_TOKEN>, N+idx, <EOS_TOKEN>] where N is the total number of primitives in the DSL, and idx is the variable index to delete. (See reference IDs in section "Building and executing a program")
 
 ### Example
+
+**TODO**
+
+## Code organization
+
+**TODO**
