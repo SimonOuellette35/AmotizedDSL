@@ -25,4 +25,33 @@ My program inference/search process is an iterative loop (maybe recursive is a b
 
 ## Building and executing a program
 
-(TODO)
+### Special tokens
+
+This program syntax uses the following special tokens:
+ 
+> SOS_TOKEN = 0           # Start of sentence
+
+> SOP_TOKEN = 1           # Start of parameters
+
+> ARG_SEP_TOKEN = 2       # Argument separator
+
+> EOS_TOKEN = 3           # End of sentence
+
+### Reference IDs
+Referring to previously generated state variables is done by using a token value equal to N+idx, where N is the number of primitives in the DSL, and idx is the 0-indexed number of the state variable. The output of the first instruction step is N+0, the output of the second instruction step is N+1, and so forth. This token value, or "reference ID", can be used anywhere there is a primitive argument to be set.
+
+Note that reference ID are essentially objects, in an object-oriented programming sense. They can either be used as is, when the argument type is of the object being referred to (e.g., a Grid instance), but it is also possible to access some of their attributes.
+
+### Structure of a program
+
+### Execution of a program
+
+### Example
+
+## Memory management
+
+Because in theory the program state keeps growing as the program grows, there is a special 'del' primitive that does garbage collection of program state components ("variables") that are no longer needed by the rest of the program.
+
+This process also serves an additional purpose: it removes noise from the program state and forces the neural network to focus on state variables that matter at each stage. We found that this was crucial to help with generalization. You can think of it as a more restrictive attention system, similar to the limited scope of conscious working memory. By training the model to be extremely sparse with its memory, it learns to focus on what matters for generalization.
+
+This is why a typical program contains a lot of del instructions, which are of format: [<SOS_TOKEN>, 'del', <SOP_TOKEN>, N+idx, <EOS_TOKEN>] where N is the total number of primitives in the DSL, and idx is the variable index to delete. (See reference IDs in section "Building and executing a program")
