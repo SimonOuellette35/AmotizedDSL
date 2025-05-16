@@ -18,9 +18,13 @@ Each instruction step outputs exactly 1 variable (though it can be a list) that 
 It helps to understand the larger context of how my synthesis algorithm works, to understand the design choices for this DSL:
 
 My program inference/search process is an iterative loop (maybe recursive is a better word, since each time I get access to the output of the previous step) of:
+
 1 - token sequence prediction of an instruction step, conditional on the program state so far
+
 2 - executing that instruction step to generate the output variable
+
 3 - adding the tokenized, then encoded variable to my encoder memory
+
 4 - repeating until an "end of program" sequence is generated, or when the search algorithm decides it's completed.
 
 ## Building and executing a program
