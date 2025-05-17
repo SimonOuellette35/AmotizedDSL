@@ -141,7 +141,7 @@ Each step is executed, if the special 'del' step was executed, we remove the spe
 
 See _example.py_ for executable code with plenty of examples. This section is only a high-level overview about writing and executing a program.
 
-An example program that shifts all pixels to the right in a grid, in "hand-written representation":
+An example program that shifts all pixels to the right (without wrapping, and preserving the original grid width) in a grid, in "hand-written representation":
 
     program = [
         ('add', [(N+0, '.x'), 1]),
@@ -153,6 +153,15 @@ An example program that shifts all pixels to the right in a grid, in "hand-writt
         ('del', [N+0]),
         ('del', [N+0])
     ]
+
+You can read it as follows:
+1. we gather the right-shifted (+1 operation) x indices of the grid.
+2. we apply to the grid the original pixel colors (N+0.c) at the right-shifted indices, causing a kind of right-shifted copy paste.
+3. we garbage collect the right-shifted x indices since they were only useful for the second instruction.
+4. we fill with zeros (black color) the left-most column, to have a true right-shifted "cut and paste" rather than a "copy paste".
+5. garbage collection
+6. finally we crop the resulting grid back to the original grid size, effectively getting rid of the new rightmost column that was created.
+7. more garbage collection over the last 2 instructions.
 
 The code to convert this to executable (token sequence) format, and to use the program interpreter to actually execute it on some input grid (a DSL.Grid instance):
 
