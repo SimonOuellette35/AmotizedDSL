@@ -27,6 +27,10 @@ My program inference/search process is an iterative loop (maybe recursive is a b
 
 4 - repeating until an "end of program" sequence is generated, or when the search algorithm decides it's completed.
 
+## DSL.Grid class
+
+**TODO**
+
 ## Building and executing a program
 
 ### Special tokens
@@ -109,11 +113,58 @@ _prog_utils.py_ is a utility file to convert programs between different represen
 
 ### Execution of a program
 
-**TODO**
+To execute a program, use the _program_interpreter.py_ file. Here are the most commonly used methods in this file:
+- execute(token_seq_list, state, primitives): executes a whole program. _token_seq_list_ is a list of lists of integers, representing the program in "token sequence" format. _state_ is a list of (non-tokenized) Python variables representing the initial state of the program. In ARC-AGI this means the input grids. So, for a whole program, _state_ should be a list of 1 element: a _DSL.Grid_ instance for an input grid. Note that currently, programs execute only on one example at a time (though I maybe generalize this to the whole demonstration going forward). _primitives_ is simply the whole DSL package, allow to choose between different DSLs if needed.
+- execute_instruction_step: executes only an instruction step sequence. _intermediate_state_ is the current list of all states, including the original input grid and all outputs of previous instruction steps.
+
+Looking at the whole program execution code can be informative in understanding how this DSL is intended to be used:
+
+    for step_idx, _ in enumerate(token_seq_list):
+        token_tuple = ProgUtils.convert_token_seq_to_token_tuple(token_seq_list[step_idx], primitives)
+
+        # If end of program instruction step, return previous output.
+        if token_tuple[0] == -1:
+            return state[-1]
+        
+        output = execute_step(token_tuple, state, primitives)
+
+        if isinstance(output, DeleteAction):
+            idx_to_remove = output.state_idx
+
+            # Delete the element at idx_to_remove from the state
+            state = [s for i, s in enumerate(state) if i != idx_to_remove]
+        else:
+            state.append(output)
+
+    return state[-1]
+
+Each step is executed, if the special 'del' step was executed, we remove the specified element from the current state "memory". Otherwise, we add the output of the current step to this same state "memory", and move on to the next step.
 
 ### Example
 
-**TODO**
+See _example.py_ for executable code with plenty of examples. This section is only a high-level overview about writing and executing a program.
+
+An example program that shifts all pixels to the right in a grid, in "hand-written representation":
+
+    program = [
+        ('add', [(N+0, '.x'), 1]),
+        ('set_pixels', [N+0, N+1, (N+0, '.y'), (N+0, '.c')]),
+        ('del', [N+1]),
+        ('set_pixels', [N+1, 0, (N+1, '.y'), 0]),
+        ('del', [N+1]),
+        ('crop', [N+1, 0, 0, (N+0, '.width'), (N+0, '.height')]),
+        ('del', [N+0]),
+        ('del', [N+0])
+    ]
+
+The code to convert this to executable (token sequence) format, and to use the program interpreter to actually execute it on some input grid (a DSL.Grid instance):
+
+    import AmotizedDSL.program_interpreter as pi
+    from AmotizedDSL.prog_utils import ProgUtils
+    import AmotizedDSL.DSL as primitives
+
+    token_seq_list = ProgUtils.convert_prog_to_token_seq(program, primitives)
+    output_grid = pi.execute(token_seq_list, input_grid, primitives)
 
 ## Memory management
 
