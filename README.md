@@ -2,14 +2,11 @@
 
 ## Introduction and motivation
 
-This is a DSL I am currently building for my neural program synthesis algorithm for ARC-AGI.
+This is a DSL I am currently building for my neural program synthesis algorithm for ARC-AGI. It was designed to be easier to use when two conditions are present:
 
-The advantages of this DSL and program synthesis syntax are:
-1. the primitives are quite low-level and general (e.g. even the basic arithmetic operations are available)
-2. each instruction step can refer to the output of previous variables by index, so at each step, all the previously generated variables are available.
-3. this allows defining a program as a flat sequence of steps without redundancies.
+First, when the DSL is to be used in a neural program synthesis context where auto-regressive generation of tokensd is used to create partial or whole programs. In this context, it is useful for the DSL (and corresponding program syntax) to be easily representable in a flat sequence, even though technically a program is more a tree or graph. My AmotizedDSL solves this by having exactly 1 output at each instruction step, and by allowing to refer to any of the previously generated outputs at any step. This "reference ID" concept means we can structure the program as a flat list without redundancies, yet still access the output of any of the previous program steps. If it is not clear what kind of redundancies and inefficiencies can arise from using a more traditional DSL and program syntax, see discussion in my paper ["Towards Efficient Neurally-Guided Program Induction for ARC-AGI"](https://arxiv.org/abs/2411.17708).
 
-If it is not clear what kind of redundancies and inefficiencies can arise from using a more traditional DSL and program syntax, see discussion in my paper ["Towards Efficient Neurally-Guided Program Induction for ARC-AGI"](https://arxiv.org/abs/2411.17708).
+Second, when the neural program synthesis approach needs ongoing access to the current state of the program as it is being constructed and applied on the input grids. This is a crucial part of my new approach, where a program builds the target grid in a kind of "recursive assembly" procedure. At each step, it creates new variables (not necessarily Grid outputs, it can be integers, booleans, lists of booleans, etc.) that get added to the assembly pool, and later steps must figure out, conditionally on the current program state (this "assembly pool"), how to arrive at the target grid.
 
 In summary, the way this DSL works and how I structure my program synthesis output is that a program is a list of "instruction steps". What I call an "instruction step" is a relatively small token sequence (usually < 20 tokens) that contains 1 primitive function token, and the parameters to this function. A parameter can be a constant or a reference ID to a previously generated variable (or the original input grids).
 
