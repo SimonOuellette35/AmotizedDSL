@@ -107,6 +107,13 @@ _prog_utils.py_ is a utility file to convert programs between different represen
 
         [SOS, primitive, SOP, arg1(, attr), ARG_SEP, arg2(, attr), ARG_SEP, ..., EOS]
 
+## Memory management
+
+Because in theory the program state keeps growing as the program grows, there is a special 'del' primitive that does garbage collection of program state components ("variables") that are no longer needed by the rest of the program.
+
+This process also serves an additional purpose: it removes noise from the program state and forces the neural network to focus on state variables that matter at each stage. We found that this was crucial to help with generalization. You can think of it as a more restrictive attention system, similar to the limited scope of conscious working memory. By training the model to be extremely sparse with its memory, it learns to focus on what matters for generalization.
+
+This is why a typical program contains a lot of del instructions, which are of format: [<SOS_TOKEN>, 'del', <SOP_TOKEN>, N+idx, <EOS_TOKEN>] where N is the total number of primitives in the DSL, and idx is the variable index to delete. (See reference IDs in section "Building and executing a program")
 
 ### Execution of a program
 
@@ -172,18 +179,3 @@ The code to convert this to executable (token sequence) format, and to use the p
     token_seq_list = ProgUtils.convert_prog_to_token_seq(program, primitives)
     output_grid = pi.execute(token_seq_list, input_grid, primitives)
 
-## Memory management
-
-Because in theory the program state keeps growing as the program grows, there is a special 'del' primitive that does garbage collection of program state components ("variables") that are no longer needed by the rest of the program.
-
-This process also serves an additional purpose: it removes noise from the program state and forces the neural network to focus on state variables that matter at each stage. We found that this was crucial to help with generalization. You can think of it as a more restrictive attention system, similar to the limited scope of conscious working memory. By training the model to be extremely sparse with its memory, it learns to focus on what matters for generalization.
-
-This is why a typical program contains a lot of del instructions, which are of format: [<SOS_TOKEN>, 'del', <SOP_TOKEN>, N+idx, <EOS_TOKEN>] where N is the total number of primitives in the DSL, and idx is the variable index to delete. (See reference IDs in section "Building and executing a program")
-
-### Example
-
-**TODO**
-
-## Code organization
-
-**TODO**
