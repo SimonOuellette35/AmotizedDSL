@@ -115,7 +115,7 @@ _prog_utils.py_ is a utility file to convert programs between different represen
 
 ## Memory management
 
-Because in theory the program state keeps growing as the program grows, there is a special 'del' primitive that does garbage collection of program state components ("variables") that are no longer needed by the rest of the program.
+Because in theory the program state keeps growing as the program grows, there is a special 'del' primitive that does garbage collection of specified program state components ("variables") that are no longer needed by the rest of the program.
 
 This process also serves an additional purpose: it removes noise from the program state and forces the neural network to focus on state variables that matter at each stage. We found that this was crucial to help with generalization. You can think of it as a more restrictive attention system, similar to the limited scope of conscious working memory. By training the model to be extremely sparse with its memory, it learns to focus on what matters for generalization. This idea has been explored in the machine learning literature, for example see ["The Consciousness Prior"](https://arxiv.org/abs/1709.08568).
 
