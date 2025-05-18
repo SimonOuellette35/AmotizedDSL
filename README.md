@@ -28,7 +28,7 @@ My program inference/search process is an iterative loop (maybe recursive is a b
 
 The Grid class in DSL.py represents an ARC-AGI grid or sub-grid. Aside from containing the cells (integer values at each x, y coordinate) it also has a height attribute, a width attribute, a ul_x (upper left x coordinate), and a ul_y (upper left y coordinate) attribute. While these upper left corner coordinates are (0, 0) for a full ARC-AGI grid, their value is can be non-zero in the case of sub-grids. For example, sub-grids can be a way to represent objects in a grid.
 
-The actual grid content can be access in to forms: .pixels and .cells. .pixels is a flat list of (x, y, color) triples. .cells is a 2-D numpy array of colors. Each color is an integer from 0 to 9 inclusively.
+The actual grid content can be accessed in two forms: _.pixels_ and _.cells_. _.pixels_ is a flat list of (x, y, color) triples. _.cells_ is a 2-D numpy array of colors. Each color is an integer from 0 to 9 inclusively.
 
 To instantiate a grid, the only mandatory argument is cells, which is a 2D array of colors. You can also provide the 2nd and 3rd arguments, which are optional: ul_x and ul_y. This is when you are instantiating a sub-grid.
 
@@ -48,7 +48,7 @@ This program syntax uses the following special tokens:
 
 ### Reference IDs & Object attributes
 
-Referring to previously generated state variables is done by using a token value equal to N+idx, where N is the number of primitives + the number of special tokens, and idx is the 0-indexed number of the state variable. The output of the first instruction step is N+0, the output of the second instruction step is N+1, and so forth. This token value, or "reference ID", can be used anywhere there is a primitive argument to be set.
+Referring to previously generated state variables is done by using a token value equal to N+idx, where N is the number of primitives + the number of special tokens, and idx is the 0-indexed number of the state variable. The output of the first instruction step is N+1, the output of the second instruction step is N+2, and so forth. N+0 is the input grid itself. This token value, or "reference ID", can be used anywhere there is a primitive argument to be set.
 
 Note that reference ID are essentially objects, in an object-oriented programming sense. They can either be used as is, when the argument type is of the object being referred to (e.g., a Grid instance), but it is also possible to access some of their attributes. The attributes are at the end of the DSL list:
 
