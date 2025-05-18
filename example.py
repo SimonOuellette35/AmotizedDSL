@@ -1,6 +1,6 @@
-import DSL
-from prog_utils import ProgUtils
-import program_interpreter as pi
+import AmotizedDSL.DSL as DSL
+from AmotizedDSL.prog_utils import ProgUtils
+import AmotizedDSL.program_interpreter as pi
 import numpy as np
 from ARC_gym.grid_sampling.grid_sampler import GridSampler
 import ARC_gym.utils.visualization as viz

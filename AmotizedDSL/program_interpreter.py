@@ -1,6 +1,6 @@
 from typing import List, Tuple
-from prog_utils import ProgUtils
-from DSL import Pixel
+from AmotizedDSL.prog_utils import ProgUtils
+from AmotizedDSL.DSL import Pixel
 import torch
 
 
