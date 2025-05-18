@@ -154,6 +154,8 @@ Each step is executed, if the special 'del' step was executed, we remove the spe
 
 See _example.py_ for executable code with plenty of examples. This section is only a high-level overview about writing and executing a program.
 
+**Note:** example.py expects [ARC_gym V2](https://github.com/SimonOuellette35/ARC_gym/tree/refactor/ARC_gymV2) to be installed. Also, you will need [ARC-AGI-2](https://github.com/arcprize/ARC-AGI-2) cloned into your current folder, since it samples grids and sub-grids from training examples.
+
 An example program that shifts all pixels to the right (without wrapping, and preserving the original grid width) in a grid, in "hand-written representation":
 
     program = [
