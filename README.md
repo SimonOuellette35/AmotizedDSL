@@ -26,7 +26,11 @@ My program inference/search process is an iterative loop (maybe recursive is a b
 
 ## DSL.Grid class
 
-**TODO**
+The Grid class in DSL.py represents an ARC-AGI grid or sub-grid. Aside from containing the cells (integer values at each x, y coordinate) it also has a height attribute, a width attribute, a ul_x (upper left x coordinate), and a ul_y (upper left y coordinate) attribute. While these upper left corner coordinates are (0, 0) for a full ARC-AGI grid, their value is can be non-zero in the case of sub-grids. For example, sub-grids can be a way to represent objects in a grid.
+
+The actual grid content can be access in to forms: .pixels and .cells. .pixels is a flat list of (x, y, color) triples. .cells is a 2-D numpy array of colors. Each color is an integer from 0 to 9 inclusively.
+
+To instantiate a grid, the only mandatory argument is cells, which is a 2D array of colors. You can also provide the 2nd and 3rd arguments, which are optional: ul_x and ul_y. This is when you are instantiating a sub-grid.
 
 ## Building and executing a program
 
