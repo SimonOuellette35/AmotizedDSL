@@ -187,3 +187,37 @@ The code to convert this to executable (token sequence) format, and to use the p
     token_seq_list = ProgUtils.convert_prog_to_token_seq(program, primitives)
     output_grid = pi.execute(token_seq_list, input_grid, primitives)
 
+### Switch statement and automatic list handling
+Some primitives, such as _switch_ and addition/subtraction/division/multiplication, automatically handle list arguments. That is, you can pass a constant or a list as arguments, and it will behaves as you might intuitively expect.
+
+For example, you can do addition(4, 5) which returns 9. But you can also do addition(\[1, 4, 5, 6\], 2) which returns \[3, 6, 7, 8\]. You can even do addition(\[1, 2, 3\], \[4, 5, 6\]), which returns \[5,7,9\].
+
+It is worth going into detail as to how the switch statement works, because it is a bit complex, yet quite commonly useful and powerful. The switch statement has three arguments: _conditions_, _operations_, _otherwise_. All of the following forms are valid:
+
+**switch(N+1, 6, 7)** the simplest form. Assuming N+1 refers to a single Boolean value, this statement corresponds to: _if (N+1) then return 6, else return 7_. In all cases, the _conditions_ argument of switch is expected to refer to a Boolean, a list of Booleans, or even a list of lists of Booleans (for multiple if/elif/elif/.../else statements).
+
+**switch(N+1, 6, 7)** same as above, but here N+1 refers to a list of Booleans, for example: \[True, False, True\]. This loops through the elements, and where True it returns 6, where False it returns 7. So it would return \[6, 7, 6\].
+
+**switch(N+3, N+1, 8)** here N+3 refers to a list of Booleans, for example \[False, True\]. N+1 refers to a list of integers, for example \[5, 9]. The logic here is that elements of the _conditions_ whose value is True will contain the corresponding elements (by index) of the N+1 _operations_ argument, otherwise they will contain 8. So this would return: \[8, 9\].
+
+**switch(N+3, N+1, N+2)** here N+3 refers to a list of Booleans, for example \[False, True\]. N+1 refers to a list of integers, for example \[5, 9]. N+2 refers to, for example, \[6, 0]. The logic here is that elements of the _conditions_ whose value is True will contain the corresponding elements (by index) of the N+1 _operations_ argument, otherwise they will contain the corresponding element of the _otherwise_ argument. So this would return: \[6, 9\].
+
+**switch(\[N+1, N+2\], \[0, 1\], 2)** this is an if/elif/else statement. N+1 and N+2 must be lists of the same number of elements. It iterates through these, and where N+1 is True, will return 0, where N+2 is True (and N+1 isn't), will return 1. If both are False, it will return the _otherwise_ value of 2.
+
+Example:
+
+    conditions = [ [True, False, False], [False, False, True] ]
+    operations = [0, 1]
+    otherwise = 2
+
+    Will return: [0, 2, 1]
+    
+**switch(\[N+1, N+2\], \[N+3, N+4\], N+5)** the most complex form of switch: if/elif/else statement where all arguments are lists. As above, we check the value of each element of _conditions_ in order from left to right, looking for the first True value. That condition index determines which value of _operations_ is returned, as above. But, because here we have lists as individual _operations_, we also must lookup the element by index based on the element index of the condition that was True. And as usual, if none of the _conditions_ are True for a given element index, we return the corresponding element from _otherwise_.
+
+Example:
+
+    conditions = [ [True, False, False], [False, False, True] ]
+    operations = [ [2, 3, 1], [6, 9, 7] ]
+    otherwise = [5, 4, 5]
+    
+    Will return: [2, 4, 7]
