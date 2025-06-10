@@ -107,8 +107,17 @@ class ProgUtils:
                     label_seq.append(tok_obj_id)
                     label_seq.append(tok_attr_id)
                 else:
-                    token_id = ProgUtils.resolve_token_str_to_token(arg, primitives)
-                    label_seq.append(token_id)
+                    if isinstance(arg, List):
+                        # Here we can assume this is a switch statement, in which lists of conditions are possible.
+                        for tmp_idx, arg_elem in enumerate(arg):
+                            token_id = ProgUtils.resolve_token_str_to_token(arg_elem, primitives)
+                            label_seq.append(token_id)
+
+                            if tmp_idx < len(arg) - 1:
+                                label_seq.append(ProgUtils.ARG_SEP_TOKEN)
+                    else:
+                        token_id = ProgUtils.resolve_token_str_to_token(arg, primitives)
+                        label_seq.append(token_id)
 
                 if arg_idx < len(args) - 1:
                     label_seq.append(ProgUtils.ARG_SEP_TOKEN)

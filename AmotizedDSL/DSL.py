@@ -445,64 +445,167 @@ def greater_than(a: int, b: int) -> bool:
     else:
         return False
 
-# TODO: type hinting
 def switch(conditions, operations, otherwise):
-    def switch_default(conditions, operations, otherwise):
+    '''
+    This is essentially an if/else statement. The logic of this primitive is somewhat complex because we implicitly
+    support "list overloading" in various ways. That is, switch(True, 0, 2) is valid, but also switch([True, False, False], 3, 9),
+    and also switch([False, False, False, True, True], [2, 5, 3, 0, 1], [5, 6, 5, 1, 1]), etc. See comments later in the code to better
+    understand how these work (also the README file).
+
+    Parameters:
+    @param conditions: can be a single boolean value, a list of booleans, or a list of lists of booleans.
+                       A list of booleans implies a single if/else statement, but with a list type of output.
+                       A list of lists implies as N-1 'elif' statements, where N is the length of the outer lists.
+    @param operations: what to return when the condition is True. Can be a constant (integer/boolean), a list of
+                       constants, or even a list of lists in the if/elif/.../else case.
+    @param otherwise:  what to return when the "else" part of the statement if reached. Can be a constant or a list of
+                       constants.
+
+    When one of the output arguments (operations/otherwise) are lists of constants, it implies that we return the element of
+    the list corresponding to the current element index being evaluated in the conditions list.
+    '''
+
+    def switch_single_constant(conditions, operations, otherwise):
+        '''
+        Here, we have 1 single boolean condition, or many conditions. If the latter, they have been preprocessed to be 
+        individual booleans. This is why we loop over conditions.
+
+        In the single constant case, this is basically:
+        if conditions:
+            return operations
+        else:
+            return otherwise
+        '''
         for idx, cond in enumerate(conditions):
             if cond:
-                return operations[idx]
-            
+                if isinstance(operations, List) and len(operations) > 1:
+                    return operations[idx]
+                else:
+                    return operations
+
         return otherwise
 
-    def process_list_switch(conditions, operations, otherwise):
+    def switch_single_list(conditions, operations, otherwise):
+        '''
+        Here we have a simple if/else statement, but the conditions and potentially operations and otherwise are lists.
+
+        For example, we can have:
+        conditions = [True, False, True]
+        operations = 6
+        otherwise = 3
+
+        Which is:
+        for cond in conditions:
+            if cond:
+                return operations
+            else:
+                return otherwise
+
+        But we can also have:
+        conditions = [True, False, True]
+        operations = [2, 3, 5]
+        otherwise = [1, 6, 9]
+
+        Which is:
+        output_list = []
+        for idx, cond in enumerate(conditions):
+            if cond:
+                output_list.append(operations[idx])
+            else:
+                output_list.append(return otherwise[idx])
+        '''
         list_output = []
         for elem_idx in range(len(conditions[0])):
+
             inner_conditions = []
+            inner_operations = []
+            inner_otherwise = []
+            
             for cond_idx in range(len(conditions)):
                 inner_conditions.append(conditions[cond_idx][elem_idx])
 
-            tmp_val = switch_default(inner_conditions, operations, otherwise)
+            if isinstance(operations, List):
+                if len(operations) > 1:
+                    inner_operations = operations[elem_idx]
+                else:
+                    inner_operations = operations[0]
+            else:
+                inner_operations = operations
+
+            if isinstance(otherwise, List):
+                inner_otherwise = otherwise[elem_idx]
+            else:
+                inner_otherwise = otherwise
+
+            tmp_val = switch_single_constant(inner_conditions, inner_operations, inner_otherwise)
             list_output.append(tmp_val)
 
         return list_output
 
-    def process_obj_list_switch(conditions, operations, otherwise):
-        # Here, conditions is: [
-        #                          cond1: [
-        #                              obj1: [bool1, bool2, bool3, ... boolN],
-        #                              obj2: ...
-        #                          ]
-        #                          cond2: [
-        #                              
-        #                          ]
-        #                       ]
-        num_objects = len(conditions[0])
-        list_output = []
-        for obj_idx in range(num_objects):
-            obj_output = []
-            for elem_idx in range(len(conditions[0][obj_idx])):
-                inner_conditions = []
-                inner_operations = []
-                for cond_idx in range(len(conditions)):
-                    inner_conditions.append(conditions[cond_idx][obj_idx][elem_idx])
-                    inner_operations.append(operations[cond_idx][obj_idx])
+    def switch_many_lists(conditions, operations, otherwise):
+        '''
+        Here we have at least one "else if" branch in our statement. We are also forced to use
+        lists as conditions, so as not to be ambiguous with respect to the single-condition list case.
+        (These lists, however, can be of 1 element if needed)
 
-                tmp_val = switch_default(inner_conditions, inner_operations, otherwise)
-                obj_output.append(tmp_val)
-            list_output.append(obj_output)
+        Example:
+        conditions = [ [True, False, False], [False, False, True] ]
+        operations = [8, 3]
+        otherwise = [1, 5, 9]
+
+        Which is:
+        n = len(conditions[0])  # assumption: lists of many-condition cases must have the same number of elements.
+        output_list = []
+        for elem_idx in range(n):
+            cond_found = False
+            for cond_idx in range(len(conditions)):
+                if conditions[cond_idx][elem_idx]:
+                    output_list.append(operations[cond_idx])
+                    cond_found = True
+                    break
+
+            if not cond_found:
+                output_list.append(otherwise[elem_idx])
+        '''
+        list_output = []
+        num_objects = len(conditions[0])
+
+        for elem_idx in range(num_objects):
+            inner_conditions = []
+            inner_operations = []
+            inner_otherwise = []
+
+            for cond_idx in range(len(conditions)):
+                inner_conditions.append(conditions[cond_idx][elem_idx])
+
+            if isinstance(operations[0], List):
+                for cond_idx in range(len(conditions)):
+                    inner_operations.append(operations[cond_idx][elem_idx])
+            else:
+                inner_operations = operations
+
+            if isinstance(otherwise, List):
+                inner_otherwise = otherwise[elem_idx]
+            else:
+                inner_otherwise = otherwise
+
+            tmp_val = switch_single_constant(inner_conditions, inner_operations, inner_otherwise)
+            list_output.append(tmp_val)
+
         return list_output
 
-    # Overloading for list processing
+    # Overloading for list processing. Here, we differentiate the 3 main cases: one single constant condtion,
+    # 1 list condition, or many if "branches" (if/elif/elif/.../else).
     if isinstance(conditions[0], List):
-        # Here we have a list of objects per condition, or a list of values per condition.
-        if isinstance(conditions[0][0], List):
-            # We have a list of lists of lists, which suggests that we have a list of objects per condition, and each
-            # object has a list of values associated with it (e.g. pixel-related values).
-            return process_obj_list_switch(conditions, operations, otherwise)
+        if len(conditions) > 1:
+            # Here we have many conditions.
+            return switch_many_lists(conditions, operations, otherwise)
         else:
-            return process_list_switch(conditions, operations, otherwise)
+            # Here there is 1 condition, but it's a list.
+            return switch_single_list(conditions, operations, otherwise)
     else:
-        return switch_default(conditions, operations, otherwise)
+        # Here the condition is just a constant.
+        return switch_single_constant(conditions, operations, otherwise)
 
 def colorOf(g: Grid, x, y) -> COLOR:
     def single_grid_colorOf(g, x, y):   
