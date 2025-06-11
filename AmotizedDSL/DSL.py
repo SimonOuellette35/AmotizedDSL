@@ -150,22 +150,23 @@ prim_indices = {
     'sub': 18,
     'div': 19,
     'mul': 20,
-    'crop': 21,
-    'colorOf': 22,
-    'set_pixels': 23,
-    'range': 24,
-    'del': 25,
+    'mod': 21,
+    'crop': 22,
+    'colorOf': 23,
+    'set_pixels': 24,
+    'keep': 25,
+    'del': 26,
 
     # Object attributes
-    '.x': 26,        # PIXEL attribute
-    '.y': 27,        # PIXEL attribute
-    '.c': 28,        # PIXEL attribute
-    '.max_x': 29,    # Grid attribute
-    '.max_y': 30,    # Grid attribute
-    '.width': 31,    # Grid attribute
-    '.height': 32,    # Grid attribute
-    '.ul_x': 33,     # Grid attribute
-    '.ul_y': 34      # Grid attribute
+    '.x': 27,        # PIXEL attribute
+    '.y': 28,        # PIXEL attribute
+    '.c': 29,        # PIXEL attribute
+    '.max_x': 30,    # Grid attribute
+    '.max_y': 31,    # Grid attribute
+    '.width': 32,    # Grid attribute
+    '.height': 33,    # Grid attribute
+    '.ul_x': 34,     # Grid attribute
+    '.ul_y': 35      # Grid attribute
 }
 
 # ======================================================================== Implementation of DSL ========================================================================
@@ -255,7 +256,7 @@ def get_index(list: List[T], i: int) -> Union[T, List[T]]:
         return list[i]
 
 def addition(a: Union[int, List[int], List[List[int]]], 
-             b: Union[int, List[int], List[List[int]]]) -> int:
+             b: Union[int, List[int], List[List[int]]]) -> Union[int, List[int]]:
     if isinstance(a, List) and isinstance(a[0], List) and isinstance(b, List) and isinstance(b[0], List):
         output_sum_lists = []
         for list_idx in range(len(a)):
@@ -299,7 +300,8 @@ def addition(a: Union[int, List[int], List[List[int]]],
     else:
         return a + b
 
-def subtraction(a: int, b: int) -> int:
+def subtraction(a: Union[int, List[int], List[List[int]]], 
+                b: Union[int, List[int], List[List[int]]]) -> Union[int, List[int]]:
     if isinstance(a, List) and isinstance(a[0], List) and isinstance(b, List) and isinstance(b[0], List):
         output_subs_lists = []
         for list_idx in range(len(a)):
@@ -350,7 +352,8 @@ def subtraction(a: int, b: int) -> int:
         result = a - b
         return max(0, result)
 
-def division(a: int, b: int) -> int:
+def division(a: Union[int, List[int], List[List[int]]], 
+             b: Union[int, List[int], List[List[int]]]) -> Union[int, List[int]]:
     if isinstance(a, list) and isinstance(b, list):
         output_quotients = []
         for idx in range(len(a)):
@@ -369,7 +372,8 @@ def division(a: int, b: int) -> int:
     else:
         return int(a // b)
 
-def multiplication(a: int, b: int) -> int:
+def multiplication(a: Union[int, List[int], List[List[int]]], 
+                   b: Union[int, List[int], List[List[int]]]) -> Union[int, List[int]]:
     if isinstance(a, list) and isinstance(b, list):
         output_products = []
         for idx in range(len(a)):
@@ -388,7 +392,8 @@ def multiplication(a: int, b: int) -> int:
     else:
         return a * b
 
-def modulo(a: int, b: int) -> int:
+def modulo(a: Union[int, List[int], List[List[int]]], 
+           b: Union[int, List[int], List[List[int]]]) -> Union[int, List[int]]:
     if isinstance(a, list) and isinstance(b, list):
         output_mods = []
         for idx in range(len(a)):
@@ -643,33 +648,12 @@ def colorSet(g: Union[Grid, List[Grid]]) -> Union[List[COLOR], List[List[COLOR]]
             all_colors.append(colors)
         return all_colors
 
-def grid_all(g_list: List[Grid], func: Callable[[Pixel], bool]) -> List[Grid]:
-    filtered = []
-    for g in g_list:
-        is_valid = True
-        for pixel in g.pixels:
-            if not func(pixel):
-                is_valid = False
-                break
-
-        if is_valid:
-            filtered.append(g)
-
-    return filtered
-
-def grid_any(g_list: List[Grid], func: Callable[[Pixel], bool]) -> List[Grid]:
-    filtered = []
-    for g in g_list:
-        is_valid = False
-        for pixel in g.pixels:
-            if func(pixel):
-                is_valid = True
-                break
-
-        if is_valid:
-            filtered.append(g)
-
-    return filtered
+def keep(input_list: Union[List[int], List[Grid]], flags: List[bool]) -> Union[List[int], List[Grid]]:
+    output = []
+    for idx in range(len(input_list)):
+        if flags[idx]:
+            output.append(input_list[idx])
+    return output
 
 def set_pixels(target_grid: Union[Grid, List[Grid]], 
                set_x: Union[List[DIM], List[List[DIM]]], 
@@ -876,6 +860,7 @@ arg_counts = [
     2,
     2,
     2,
+    2,
     5,
     3,
     4,
@@ -918,13 +903,14 @@ semantics = {
     'sub': subtraction,
     'div': division,
     'mul': multiplication,
+    'mod': modulo,
     'crop': crop,
     'colorOf': colorOf,
     
     # Given a list of x coordinates and y coordinates for the pixels to modify in the target grid,
     # is sets those pixels' colors to the values passed as fourth argument.
     'set_pixels': set_pixels,
-    'range': get_range,
+    'keep': keep,
 
     'del': lambda x: x,       # This is actually a special primitive that is implemented at the program execution level
                               # where state memroy management is possible.
