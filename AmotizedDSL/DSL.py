@@ -141,7 +141,7 @@ prim_indices = {
     # Main functional primitives
     'identity': 10, 
     'get_objects1': 11,
-    'colorSet': 12,
+    'color_set': 12,
     'equal': 13,
     'not_equal': 14,
     'switch': 15,
@@ -154,25 +154,43 @@ prim_indices = {
     'or': 22,
     'and': 23,
     'xor': 24,    
-    'crop': 25,
-    'colorOf': 26,
-    'set_pixels': 27,
-    'keep': 28,
-    'del': 29,
+    'arg_min': 25,
+    'arg_max': 26,
+    'crop': 27,
+    'colorOf': 28,
+    'set_pixels': 29,
+    'new_grid': 30,
+    'keep': 31,
+    'exclude': 32,
+    'count_values': 33,
+    'del': 34,
 
     # Object attributes
-    '.x': 30,        # PIXEL attribute
-    '.y': 31,        # PIXEL attribute
-    '.c': 32,        # PIXEL attribute
-    '.max_x': 33,    # Grid attribute
-    '.max_y': 34,    # Grid attribute
-    '.width': 35,    # Grid attribute
-    '.height': 36,    # Grid attribute
-    '.ul_x': 37,     # Grid attribute
-    '.ul_y': 38      # Grid attribute
+    '.x': 35,        # PIXEL attribute
+    '.y': 36,        # PIXEL attribute
+    '.c': 37,        # PIXEL attribute
+    '.max_x': 38,    # Grid attribute
+    '.max_y': 39,    # Grid attribute
+    '.width': 40,    # Grid attribute
+    '.height': 41,    # Grid attribute
+    '.ul_x': 42,     # Grid attribute
+    '.ul_y': 43      # Grid attribute
 }
 
 # ======================================================================== Implementation of DSL ========================================================================
+
+def new_grid(w: int, h: int, bg_color) -> Grid:
+    if isinstance(bg_color, List):
+        bg_color = bg_color[0]
+
+    if isinstance(w, List):
+        w = w[0]
+
+    if isinstance(h, List):
+        h = h[0]
+
+    cells = np.ones((h, w)) * bg_color
+    return Grid(cells)
 
 def get_width(g: Union[Grid, List[Grid]]) -> Union[DIM, List[DIM]]:
     if isinstance(g, Grid):
@@ -257,6 +275,22 @@ def get_index(list: List[T], i: int) -> Union[T, List[T]]:
         return output
     else:
         return list[i]
+
+def count_values(values: List[int], data_list: Union[List[int], Grid]) -> List[int]:
+
+    counts = [0] * len(values)
+    if isinstance(data_list, Grid):
+        for v_idx, v in enumerate(values):
+            for px in data_list.pixels:
+                if v == px[2]:
+                    counts[v_idx] += 1
+    else:
+        for v_idx, v in enumerate(values):
+            for d in data_list:
+                if v == d:
+                    counts[v_idx] += 1
+
+    return counts
 
 def addition(a: Union[int, List[int], List[List[int]]], 
              b: Union[int, List[int], List[List[int]]]) -> Union[int, List[int]]:
@@ -437,6 +471,7 @@ def equal(a, b):
             output = []
             for idx in range(len(a)):
                 output.append(equal2(a[idx], b[idx]))
+            
             return output
         else:
             return equal2(a, b)
@@ -649,6 +684,7 @@ def colorSet(g: Union[Grid, List[Grid]]) -> Union[List[COLOR], List[List[COLOR]]
             colors = list(set(pixels))
             colors.sort()
             all_colors.append(colors)
+
         return all_colors
 
 def keep(input_list: Union[List[int], List[Grid]], flags: List[bool]) -> Union[List[int], List[Grid]]:
@@ -657,6 +693,30 @@ def keep(input_list: Union[List[int], List[Grid]], flags: List[bool]) -> Union[L
         if flags[idx]:
             output.append(input_list[idx])
     return output
+
+def exclude(input_list: Union[List[int], List[Grid]], flags: List[bool]) -> Union[List[int], List[Grid]]:
+    output = []
+    for idx in range(len(input_list)):
+        if not flags[idx]:
+            output.append(input_list[idx])
+    
+    return output
+
+def arg_min(arg_list: List[int], val_list: List[int]) -> List[int]:
+    if len(arg_list) != len(val_list):
+        raise ValueError("arg_list and val_list must have same length")
+    
+    min_val = min(val_list)
+    min_idx = val_list.index(min_val)
+    return arg_list[min_idx]
+
+def arg_max(arg_list: List[int], val_list: List[int]) -> List[int]:
+    if len(arg_list) != len(val_list):
+        raise ValueError("arg_list and val_list must have same length")
+    
+    max_val = max(val_list)
+    max_idx = val_list.index(max_val)
+    return arg_list[max_idx]
 
 def logical_or(a: Union[bool, List[bool]], b: Union[bool, List[bool]]) -> Union[bool, List[bool]]:
     if isinstance(a, List) and isinstance(b, List):
@@ -915,9 +975,14 @@ arg_counts = [
     2,
     2,
     2,
+    2,
+    2,
     5,
     3,
     4,
+    3,
+    2,
+    2,
     2,
     1,
     1,
@@ -948,7 +1013,7 @@ semantics = {
     # Main functional primitives
     'identity': lambda x: x,
     'get_objects1': lambda x: x,        # TODO: to be implemented
-    'colorSet': colorSet,
+    'color_set': colorSet,
     'equal': equal,
     'not_equal': not_equal,
     'switch': switch,
@@ -961,14 +1026,18 @@ semantics = {
     'or': logical_or,
     'and': logical_and,
     'xor': logical_xor,
+    'arg_min': arg_min,
+    'arg_max': arg_max,
     'crop': crop,
     'colorOf': colorOf,
-    
+
     # Given a list of x coordinates and y coordinates for the pixels to modify in the target grid,
     # is sets those pixels' colors to the values passed as fourth argument.
     'set_pixels': set_pixels,
+    'new_grid': new_grid,
     'keep': keep,
-
+    'exclude': exclude,
+    'count_values': count_values,
     'del': lambda x: x,       # This is actually a special primitive that is implemented at the program execution level
                               # where state memroy management is possible.
 
