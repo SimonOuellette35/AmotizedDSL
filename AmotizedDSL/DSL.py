@@ -151,22 +151,25 @@ prim_indices = {
     'div': 19,
     'mul': 20,
     'mod': 21,
-    'crop': 22,
-    'colorOf': 23,
-    'set_pixels': 24,
-    'keep': 25,
-    'del': 26,
+    'or': 22,
+    'and': 23,
+    'xor': 24,    
+    'crop': 25,
+    'colorOf': 26,
+    'set_pixels': 27,
+    'keep': 28,
+    'del': 29,
 
     # Object attributes
-    '.x': 27,        # PIXEL attribute
-    '.y': 28,        # PIXEL attribute
-    '.c': 29,        # PIXEL attribute
-    '.max_x': 30,    # Grid attribute
-    '.max_y': 31,    # Grid attribute
-    '.width': 32,    # Grid attribute
-    '.height': 33,    # Grid attribute
-    '.ul_x': 34,     # Grid attribute
-    '.ul_y': 35      # Grid attribute
+    '.x': 30,        # PIXEL attribute
+    '.y': 31,        # PIXEL attribute
+    '.c': 32,        # PIXEL attribute
+    '.max_x': 33,    # Grid attribute
+    '.max_y': 34,    # Grid attribute
+    '.width': 35,    # Grid attribute
+    '.height': 36,    # Grid attribute
+    '.ul_x': 37,     # Grid attribute
+    '.ul_y': 38      # Grid attribute
 }
 
 # ======================================================================== Implementation of DSL ========================================================================
@@ -655,6 +658,54 @@ def keep(input_list: Union[List[int], List[Grid]], flags: List[bool]) -> Union[L
             output.append(input_list[idx])
     return output
 
+def logical_or(a: Union[bool, List[bool]], b: Union[bool, List[bool]]) -> Union[bool, List[bool]]:
+    if isinstance(a, List) and isinstance(b, List):
+        # List vs List: pairwise OR
+        if len(a) != len(b):
+            raise ValueError("Lists must have same length for pairwise OR")
+        return [a[i] or b[i] for i in range(len(a))]
+    elif isinstance(a, List):
+        # List vs Single: each element OR'd with single boolean
+        return [x or b for x in a]
+    elif isinstance(b, List):
+        # Single vs List: single boolean OR'd with each element
+        return [a or x for x in b]
+    else:
+        # Single vs Single: simple OR
+        return a or b
+
+def logical_and(a: Union[bool, List[bool]], b: Union[bool, List[bool]]) -> Union[bool, List[bool]]:
+    if isinstance(a, List) and isinstance(b, List):
+        # List vs List: pairwise AND
+        if len(a) != len(b):
+            raise ValueError("Lists must have same length for pairwise OR")
+        return [a[i] and b[i] for i in range(len(a))]
+    elif isinstance(a, List):
+        # List vs Single: each element AND'ed with single boolean
+        return [x and b for x in a]
+    elif isinstance(b, List):
+        # Single vs List: single boolean AND'ed with each element
+        return [a and x for x in b]
+    else:
+        # Single vs Single: simple AND
+        return a and b
+
+def logical_xor(a: Union[bool, List[bool]], b: Union[bool, List[bool]]) -> Union[bool, List[bool]]:
+    if isinstance(a, List) and isinstance(b, List):
+        # List vs List: pairwise XOR
+        if len(a) != len(b):
+            raise ValueError("Lists must have same length for pairwise XOR")
+        return [a[i] ^ b[i] for i in range(len(a))]
+    elif isinstance(a, List):
+        # List vs Single: each element XOR'd with single boolean
+        return [x ^ b for x in a]
+    elif isinstance(b, List):
+        # Single vs List: single boolean XOR'd with each element
+        return [a ^ x for x in b]
+    else:
+        # Single vs Single: simple XOR
+        return a ^ b
+
 def set_pixels(target_grid: Union[Grid, List[Grid]], 
                set_x: Union[List[DIM], List[List[DIM]]], 
                set_y: Union[List[DIM], List[List[DIM]]],
@@ -861,6 +912,9 @@ arg_counts = [
     2,
     2,
     2,
+    2,
+    2,
+    2,
     5,
     3,
     4,
@@ -904,6 +958,9 @@ semantics = {
     'div': division,
     'mul': multiplication,
     'mod': modulo,
+    'or': logical_or,
+    'and': logical_and,
+    'xor': logical_xor,
     'crop': crop,
     'colorOf': colorOf,
     
