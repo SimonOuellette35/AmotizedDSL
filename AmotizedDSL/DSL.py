@@ -74,31 +74,6 @@ class Grid:
         # Convert the 2D list to a tuple of tuples
         return tuple(tuple(row) for row in grid)
 
-    def get_shifted_cells(self):
-        # Get original cells and dimensions
-        cells = self.cells
-        width = self.width
-        height = self.height
-        
-        # Get shift amounts
-        x_shift = self.ul_x
-        y_shift = self.ul_y
-        
-        # Create empty grid filled with background color (0)
-        result = [[0 for _ in range(width)] for _ in range(height)]
-        
-        # Copy cells to shifted position
-        for y in range(len(cells)):
-            if y + y_shift < 0 or y + y_shift >= height:
-                continue
-            for x in range(len(cells[y])):
-                if x + x_shift < 0 or x + x_shift >= width:
-                    continue
-                result[y + y_shift][x + x_shift] = cells[y][x]
-                
-        # Convert to tuple of tuples
-        return tuple(tuple(row) for row in result)
-
     def __str__(self):
         """
         Returns a string representation of the Grid instance.
@@ -821,14 +796,23 @@ def set_pixels(target_grid: Union[Grid, List[Grid]],
         if isinstance(colors, int) or isinstance(colors, np.int64):
             colors = np.ones(n) * colors
 
-        max_x = max(target_grid.width, max(set_x) + 1)
-        max_y = max(target_grid.height, max(set_y) + 1)
+        # Filter out negative coordinates
+        valid_indices = [i for i in range(n) if set_x[i] >= 0 and set_y[i] >= 0]
+        if not valid_indices:
+            return target_grid
+
+        # Use only valid coordinates for max calculations
+        valid_x = [set_x[i] for i in valid_indices]
+        valid_y = [set_y[i] for i in valid_indices]
+        
+        max_x = max(target_grid.width, max(valid_x) + 1)
+        max_y = max(target_grid.height, max(valid_y) + 1)
         new_cells = np.zeros((max_y, max_x))
         for y in range(target_grid.height):
             for x in range(target_grid.width):
                 new_cells[y][x] = target_grid.cells[y][x]
 
-        for idx in range(n):
+        for idx in valid_indices:
             x_coord = int(set_x[idx])
             y_coord = int(set_y[idx])
             color = colors[idx]
