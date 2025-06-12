@@ -2,6 +2,7 @@ from typing import List, Tuple
 from AmotizedDSL.prog_utils import ProgUtils
 from AmotizedDSL.DSL import Pixel
 import torch
+import numpy as np
 
 
 class DeleteAction:
@@ -41,8 +42,11 @@ def resolve_arg(arg, states, primitives, verbose=True):
         return output
 
     else:
-        if arg < 10:
+        if arg <= 10:
             # integer constant
+            if arg == 10:
+                return np.pi
+            
             return arg
         elif arg >= len(primitives.semantics):
             # resolve the reference

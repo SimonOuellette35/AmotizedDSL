@@ -1,6 +1,8 @@
-from typing import List, Tuple, TypeVar, Callable, Union
+from typing import List, TypeVar, Union
 import numpy as np
+import math
 import copy
+
 
 T = TypeVar('T')
 COLOR = TypeVar('COLOR', bound=int)
@@ -137,44 +139,47 @@ prim_indices = {
     '7': 7,
     '8': 8,
     '9': 9,
+    'pi': 10,
 
     # Main functional primitives
-    'identity': 10, 
-    'get_objects1': 11,
-    'color_set': 12,
-    'equal': 13,
-    'not_equal': 14,
-    'switch': 15,
-    'index': 16,
-    'add': 17,
-    'sub': 18,
-    'div': 19,
-    'mul': 20,
-    'mod': 21,
-    'or': 22,
-    'and': 23,
-    'xor': 24,    
-    'arg_min': 25,
-    'arg_max': 26,
-    'crop': 27,
-    'colorOf': 28,
-    'set_pixels': 29,
-    'new_grid': 30,
-    'keep': 31,
-    'exclude': 32,
-    'count_values': 33,
-    'del': 34,
+    'identity': 11, 
+    'get_objects1': 12,
+    'color_set': 13,
+    'equal': 14,
+    'not_equal': 15,
+    'switch': 16,
+    'index': 17,
+    'add': 18,
+    'sub': 19,
+    'div': 20,
+    'mul': 21,
+    'mod': 22,
+    'sin': 23,
+    'cos': 24,
+    'or': 25,
+    'and': 26,
+    'xor': 27,    
+    'arg_min': 28,
+    'arg_max': 29,
+    'crop': 30,
+    'colorOf': 31,
+    'set_pixels': 32,
+    'new_grid': 33,
+    'keep': 34,
+    'exclude': 35,
+    'count_values': 36,
+    'del': 37,
 
     # Object attributes
-    '.x': 35,        # PIXEL attribute
-    '.y': 36,        # PIXEL attribute
-    '.c': 37,        # PIXEL attribute
-    '.max_x': 38,    # Grid attribute
-    '.max_y': 39,    # Grid attribute
-    '.width': 40,    # Grid attribute
-    '.height': 41,    # Grid attribute
-    '.ul_x': 42,     # Grid attribute
-    '.ul_y': 43      # Grid attribute
+    '.x': 38,        # PIXEL attribute
+    '.y': 39,        # PIXEL attribute
+    '.c': 40,        # PIXEL attribute
+    '.max_x': 41,    # Grid attribute
+    '.max_y': 42,    # Grid attribute
+    '.width': 43,    # Grid attribute
+    '.height': 44,    # Grid attribute
+    '.ul_x': 45,     # Grid attribute
+    '.ul_y': 46      # Grid attribute
 }
 
 # ======================================================================== Implementation of DSL ========================================================================
@@ -292,6 +297,28 @@ def count_values(values: List[int], data_list: Union[List[int], Grid]) -> List[i
 
     return counts
 
+def apply_sin(val) -> int:
+    print(f"==> sin({val})")
+    if isinstance(val, List):
+        output_list = []
+        for v in val:
+            output_list.append(int(math.sin(v)))
+
+        print("==> sin returned: ", output_list)
+        return output_list
+    else:
+        return int(math.sin(val))
+
+def apply_cos(val) -> int:
+    if isinstance(val, List):
+        output_list = []
+        for v in val:
+            output_list.append(int(math.cos(v)))
+
+        return output_list
+    else:
+        return int(math.cos(val))
+
 def addition(a: Union[int, List[int], List[List[int]]], 
              b: Union[int, List[int], List[List[int]]]) -> Union[int, List[int]]:
     if isinstance(a, List) and isinstance(a[0], List) and isinstance(b, List) and isinstance(b[0], List):
@@ -345,7 +372,7 @@ def subtraction(a: Union[int, List[int], List[List[int]]],
             output_subs = []
             for elem_idx in range(len(a[list_idx])):
                 result = a[list_idx][elem_idx] - b[list_idx][elem_idx]
-                output_subs.append(max(0, result))
+                output_subs.append(result)
             
             output_subs_lists.append(output_subs)
         return output_subs_lists
@@ -355,7 +382,7 @@ def subtraction(a: Union[int, List[int], List[List[int]]],
             output_subs = []
             for elem_idx in range(len(a[list_idx])):
                 result = a[list_idx][elem_idx] - b[list_idx]
-                output_subs.append(max(0, result))
+                output_subs.append(result)
             output_sub_lists.append(output_subs)
         return output_sub_lists
     elif isinstance(b, List) and isinstance(b[0], List) and isinstance(a, List):
@@ -364,50 +391,50 @@ def subtraction(a: Union[int, List[int], List[List[int]]],
             output_subs = []
             for elem_idx in range(len(b[list_idx])):
                 result = a[list_idx] - b[list_idx][elem_idx]
-                output_subs.append(max(0, result))
+                output_subs.append(result)
             output_sub_lists.append(output_subs)
         return output_sub_lists    
     elif isinstance(a, list) and isinstance(b, list):
         output_subs = []
         for idx in range(len(a)):
             result = a[idx] - b[idx]
-            output_subs.append(max(0, result))
+            output_subs.append(result)
         return output_subs
     elif isinstance(a, list):
         output_subs = []
         for idx in range(len(a)):
             result = a[idx] - b
-            output_subs.append(max(0, result))
+            output_subs.append(result)
         return output_subs
     elif isinstance(b, list):
         output_subs = []
         for idx in range(len(b)):
             result = a - b[idx]
-            output_subs.append(max(0, result))
+            output_subs.append(result)
         return output_subs    
     else:
         result = a - b
-        return max(0, result)
+        return result
 
-def division(a: Union[int, List[int], List[List[int]]], 
-             b: Union[int, List[int], List[List[int]]]) -> Union[int, List[int]]:
+def division(a: Union[int, float, List[int], List[List[int]]], 
+             b: Union[int, float, List[int], List[List[int]]]) -> Union[int, List[int]]:
     if isinstance(a, list) and isinstance(b, list):
         output_quotients = []
         for idx in range(len(a)):
-            output_quotients.append(a[idx] // b[idx])
+            output_quotients.append(a[idx] / b[idx])
         return output_quotients
     elif isinstance(a, list):
         output_quotients = []
         for idx in range(len(a)):
-            output_quotients.append(a[idx] // b)
+            output_quotients.append(a[idx] / b)
         return output_quotients
     elif isinstance(b, list):
         output_quotients = []
         for idx in range(len(b)):
-            output_quotients.append(a // b[idx])
+            output_quotients.append(a / b[idx])
         return output_quotients
     else:
-        return int(a // b)
+        return a / b
 
 def multiplication(a: Union[int, List[int], List[List[int]]], 
                    b: Union[int, List[int], List[List[int]]]) -> Union[int, List[int]]:
@@ -960,6 +987,7 @@ arg_counts = [
     0,
     0,
     0,
+    0,
     1,
     1,
     1,
@@ -972,6 +1000,8 @@ arg_counts = [
     2,
     2,
     2,
+    1,
+    1,
     2,
     2,
     2,
@@ -1009,10 +1039,11 @@ semantics = {
     '7': 7,
     '8': 8,
     '9': 9,
+    'pi': np.pi,
 
     # Main functional primitives
     'identity': lambda x: x,
-    'get_objects1': lambda x: x,        # TODO: to be implemented
+    'get_objects': lambda x: x,        # TODO: to be implemented as a neural primitive
     'color_set': colorSet,
     'equal': equal,
     'not_equal': not_equal,
@@ -1023,6 +1054,8 @@ semantics = {
     'div': division,
     'mul': multiplication,
     'mod': modulo,
+    'sin': apply_sin,
+    'cos': apply_cos,
     'or': logical_or,
     'and': logical_and,
     'xor': logical_xor,
