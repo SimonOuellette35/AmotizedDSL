@@ -774,6 +774,21 @@ def set_pixels(target_grid: Union[Grid, List[Grid]],
     # if the target coord is out-of-bounds, extend the target grid as needed (this is especially useful for tiling tasks)
     def set_single_grid_pixels(target_grid: Grid, set_x: Union[DIM, List[DIM]], set_y: Union[DIM, List[DIM]], colors: Union[COLOR, List[COLOR]]) -> Grid:
         
+        if isinstance(set_x, List):
+            set_x = [int(x) for x in set_x]
+        else:
+            set_x = int(set_x)
+
+        if isinstance(set_y, List):
+            set_y = [int(y) for y in set_y]
+        else:
+            set_y = int(set_y)
+
+        if isinstance(colors, List):
+            colors = [int(c) for c in colors]
+        else:
+            colors = int(colors)
+
         # At least one of set_x, set_y or colors must be a List and this indicates the number of elements to populate
         # for the integer cases.
         n = 0
