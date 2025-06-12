@@ -42,11 +42,7 @@ def resolve_arg(arg, states, primitives, verbose=True):
         return output
 
     else:
-        if arg <= 10:
-            # integer constant
-            if arg == 10:
-                return np.pi
-            
+        if arg < 10:
             return arg
         elif arg >= len(primitives.semantics):
             # resolve the reference

@@ -114,47 +114,46 @@ prim_indices = {
     '7': 7,
     '8': 8,
     '9': 9,
-    'pi': 10,
 
     # Main functional primitives
-    'identity': 11, 
-    'get_objects1': 12,
-    'color_set': 13,
-    'equal': 14,
-    'not_equal': 15,
-    'switch': 16,
-    'index': 17,
-    'add': 18,
-    'sub': 19,
-    'div': 20,
-    'mul': 21,
-    'mod': 22,
-    'sin': 23,
-    'cos': 24,
-    'or': 25,
-    'and': 26,
-    'xor': 27,    
-    'arg_min': 28,
-    'arg_max': 29,
-    'crop': 30,
-    'colorOf': 31,
-    'set_pixels': 32,
-    'new_grid': 33,
-    'keep': 34,
-    'exclude': 35,
-    'count_values': 36,
-    'del': 37,
+    'identity': 10, 
+    'get_objects1': 11,
+    'color_set': 12,
+    'equal': 13,
+    'not_equal': 14,
+    'switch': 15,
+    'index': 16,
+    'add': 17,
+    'sub': 18,
+    'div': 19,
+    'mul': 20,
+    'mod': 21,
+    'sin_half_pi': 22,
+    'cos_half_pi': 23,
+    'or': 24,
+    'and': 25,
+    'xor': 26,    
+    'arg_min': 27,
+    'arg_max': 28,
+    'crop': 29,
+    'colorOf': 30,
+    'set_pixels': 31,
+    'new_grid': 32,
+    'keep': 33,
+    'exclude': 34,
+    'count_values': 35,
+    'del': 36,
 
     # Object attributes
-    '.x': 38,        # PIXEL attribute
-    '.y': 39,        # PIXEL attribute
-    '.c': 40,        # PIXEL attribute
-    '.max_x': 41,    # Grid attribute
-    '.max_y': 42,    # Grid attribute
-    '.width': 43,    # Grid attribute
-    '.height': 44,    # Grid attribute
-    '.ul_x': 45,     # Grid attribute
-    '.ul_y': 46      # Grid attribute
+    '.x': 37,        # PIXEL attribute
+    '.y': 38,        # PIXEL attribute
+    '.c': 39,        # PIXEL attribute
+    '.max_x': 40,    # Grid attribute
+    '.max_y': 41,    # Grid attribute
+    '.width': 42,    # Grid attribute
+    '.height': 43,    # Grid attribute
+    '.ul_x': 44,     # Grid attribute
+    '.ul_y': 45      # Grid attribute
 }
 
 # ======================================================================== Implementation of DSL ========================================================================
@@ -272,25 +271,27 @@ def count_values(values: List[int], data_list: Union[List[int], Grid]) -> List[i
 
     return counts
 
-def apply_sin(val) -> int:
+def sin_half_pi(val) -> int:
+    # sin(pi/2 * val)
     if isinstance(val, List):
         output_list = []
         for v in val:
-            output_list.append(int(math.sin(v)))
+            output_list.append(int(math.sin((np.pi / 2.) * v)))
 
         return output_list
     else:
-        return int(math.sin(val))
+        return int(math.sin((np.pi / 2.) * val))
 
-def apply_cos(val) -> int:
+def cos_half_pi(val) -> int:
+    # cos(pi/2 * val)
     if isinstance(val, List):
         output_list = []
         for v in val:
-            output_list.append(int(math.cos(v)))
+            output_list.append(int(math.cos((np.pi / 2.) * v)))
 
         return output_list
     else:
-        return int(math.cos(val))
+        return int(math.cos((np.pi / 2.) * val))
 
 def addition(a: Union[int, List[int], List[List[int]]], 
              b: Union[int, List[int], List[List[int]]]) -> Union[int, List[int]]:
@@ -394,20 +395,20 @@ def division(a: Union[int, float, List[int], List[List[int]]],
     if isinstance(a, list) and isinstance(b, list):
         output_quotients = []
         for idx in range(len(a)):
-            output_quotients.append(a[idx] / b[idx])
+            output_quotients.append(int(a[idx] // b[idx]))
         return output_quotients
     elif isinstance(a, list):
         output_quotients = []
         for idx in range(len(a)):
-            output_quotients.append(a[idx] / b)
+            output_quotients.append(int(a[idx] // b))
         return output_quotients
     elif isinstance(b, list):
         output_quotients = []
         for idx in range(len(b)):
-            output_quotients.append(a / b[idx])
+            output_quotients.append(int(a // b[idx]))
         return output_quotients
     else:
-        return a / b
+        return int(a // b)
 
 def multiplication(a: Union[int, List[int], List[List[int]]], 
                    b: Union[int, List[int], List[List[int]]]) -> Union[int, List[int]]:
@@ -984,7 +985,6 @@ arg_counts = [
     0,
     0,
     0,
-    0,
     1,
     1,
     1,
@@ -1036,7 +1036,6 @@ semantics = {
     '7': 7,
     '8': 8,
     '9': 9,
-    'pi': np.pi,
 
     # Main functional primitives
     'identity': lambda x: x,
@@ -1051,8 +1050,8 @@ semantics = {
     'div': division,
     'mul': multiplication,
     'mod': modulo,
-    'sin': apply_sin,
-    'cos': apply_cos,
+    'sin_half_pi': sin_half_pi,
+    'cos_half_pi': cos_half_pi,
     'or': logical_or,
     'and': logical_and,
     'xor': logical_xor,
