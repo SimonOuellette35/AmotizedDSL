@@ -298,13 +298,11 @@ def count_values(values: List[int], data_list: Union[List[int], Grid]) -> List[i
     return counts
 
 def apply_sin(val) -> int:
-    print(f"==> sin({val})")
     if isinstance(val, List):
         output_list = []
         for v in val:
             output_list.append(int(math.sin(v)))
 
-        print("==> sin returned: ", output_list)
         return output_list
     else:
         return int(math.sin(val))
