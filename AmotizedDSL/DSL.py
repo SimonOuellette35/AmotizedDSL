@@ -271,7 +271,7 @@ def count_values(values: List[int], data_list: Union[List[int], Grid]) -> List[i
 
     return counts
 
-def sin_half_pi(val) -> int:
+def sin_half_pi(val) -> Union[int, List[int]]:
     # sin(pi/2 * val)
     if isinstance(val, List):
         output_list = []
@@ -282,7 +282,7 @@ def sin_half_pi(val) -> int:
     else:
         return int(math.sin((np.pi / 2.) * val))
 
-def cos_half_pi(val) -> int:
+def cos_half_pi(val) -> Union[int, List[int]]:
     # cos(pi/2 * val)
     if isinstance(val, List):
         output_list = []

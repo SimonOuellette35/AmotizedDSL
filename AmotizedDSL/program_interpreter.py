@@ -179,17 +179,6 @@ def execute_instruction_step(instr_step, intermediate_state, primitives, verbose
             if verbose:
                 print("Instruction step output = ", prog_output)
 
-            # validate output. For example, if it's a list of integers and it contains negative
-            # integers, it's certainly an incorrect program (at least right now in the current
-            # scope of problems)
-            # Validate output for lists of integers
-            if isinstance(prog_output, list) and all(isinstance(x, int) for x in prog_output):
-                for val in prog_output:
-                    if val < 0 or val > max_int:
-                        if verbose:
-                            print(f"==> ERROR: Integer value {val} out of valid range [0, {max_int}]")
-                        return None
-
             return prog_output
         except:
             # Capture and display the traceback of the exception
