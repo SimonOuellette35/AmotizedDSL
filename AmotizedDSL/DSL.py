@@ -59,6 +59,22 @@ class Grid:
     def cells_as_numpy(self):
         return self.to_grid_numpy()
 
+    def to_llm(self):
+        ''' 
+        Outputs the grid as a string for LLM prompts
+        '''
+        grid = self.to_grid()
+        grid_str = '['
+        for row in grid:
+            row_str = ''
+            for cell in row:
+                row_str += str(int(cell))
+            row_str += '\n'
+            grid_str += row_str
+        grid_str += ']\n'
+
+        return grid_str
+
     def to_grid(self):
         # Find the maximum x and y coordinates
         max_x = int(max(pixel[0] for pixel in self.pixels))
