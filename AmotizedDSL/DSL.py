@@ -42,7 +42,7 @@ class Grid:
 
         self.ul_x = int(ul_x)
         self.ul_y = int(ul_y)
-
+        
         self.pixels = self.from_grid(cells)  # pixels is a list of [(x, y, color)]
 
     def from_grid(self, cells):
@@ -54,12 +54,12 @@ class Grid:
 
     @property
     def cells(self):
-        return self.to_grid()
-    
-    def to_grid(self):
-        if not self.pixels:
-            return tuple()
+        return self.to_grid_tuples()
 
+    def cells_as_numpy(self):
+        return self.to_grid_numpy()
+
+    def to_grid(self):
         # Find the maximum x and y coordinates
         max_x = int(max(pixel[0] for pixel in self.pixels))
         max_y = int(max(pixel[1] for pixel in self.pixels))
@@ -71,9 +71,56 @@ class Grid:
         for x, y, color in self.pixels:
             grid[y, x] = color
 
+        return grid
+
+    def to_grid_tuples(self):
+        if not self.pixels:
+            return tuple()
+
+        grid = self.to_grid()
+
         # Convert the 2D list to a tuple of tuples
         return tuple(tuple(row) for row in grid)
 
+    def to_grid_numpy(self):
+        if not self.pixels:
+            return np.array([])
+
+        grid = self.to_grid()
+        return grid
+
+    @staticmethod
+    def get_grid_list(grid, object_mask):
+        # From a grid and an object instance mask, generate a list of Grid instances
+        # corresponding to the separate objects in the grid (excluding the background)
+    
+        # Find all unique instance IDs in the object mask (excluding 0 which is background)
+        instance_ids = np.unique(object_mask)
+
+        grid_list = []
+        for id in instance_ids:
+            # Find the smallest rectangle that surrounds/includes all instances of this id in object_mask
+            # Find all coordinates where this instance ID appears
+            instance_coords = np.where(object_mask == id)
+            y_coords = instance_coords[0]
+            x_coords = instance_coords[1]
+            
+            # Calculate bounding box
+            min_y, max_y = np.min(y_coords), np.max(y_coords)
+            min_x, max_x = np.min(x_coords), np.max(x_coords)
+            
+            # Extract the subgrid for this instance
+            instance_grid = grid[min_y:max_y+1, min_x:max_x+1]
+            
+            # Create object mask for this instance (True where object_mask equals this ID)
+            instance_mask = (object_mask[min_y:max_y+1, min_x:max_x+1] == id)
+            
+            # Create a new Grid instance for this object
+            instance_grid_obj = Grid(instance_grid, instance_mask, min_x, min_y)
+            grid_list.append(instance_grid_obj)
+
+        return grid_list
+    
     def __str__(self):
         """
         Returns a string representation of the Grid instance.
@@ -99,6 +146,17 @@ def inverse_lookup(idx):
             return key
         
     return None
+
+def code_to_token_id(code):
+    """
+    Given a code (value from text_to_code), find the corresponding key in text_to_code,
+    then look up this key in prim_indices to get the token id.
+    """
+    for k, v in text_to_code.items():
+        if v == code:
+            return prim_indices[k]
+    
+    return prim_indices[code]
 
 # =================================================================== Primitives and their associated indices ===================================================================
 
@@ -142,20 +200,49 @@ prim_indices = {
     'keep': 33,
     'exclude': 34,
     'count_values': 35,
-    'del': 36,
+    'rebuild_grid': 36,
+    'del': 37,
 
     # Object attributes
-    '.x': 37,        # PIXEL attribute
-    '.y': 38,        # PIXEL attribute
-    '.c': 39,        # PIXEL attribute
-    '.max_x': 40,    # Grid attribute
-    '.max_y': 41,    # Grid attribute
-    '.width': 42,    # Grid attribute
-    '.height': 43,    # Grid attribute
-    '.ul_x': 44,     # Grid attribute
-    '.ul_y': 45      # Grid attribute
+    '.x': 38,        # PIXEL attribute
+    '.y': 39,        # PIXEL attribute
+    '.c': 40,        # PIXEL attribute
+    '.max_x': 41,    # Grid attribute
+    '.max_y': 42,    # Grid attribute
+    '.width': 43,    # Grid attribute
+    '.height': 44,    # Grid attribute
+    '.ul_x': 45,     # Grid attribute
+    '.ul_y': 46      # Grid attribute
 }
 
+text_to_code = {
+    # Main functional primitives
+    'identity': 'id', 
+    'get_objects': 'obj',
+    'color_set': 'col',
+    'equal': 'eq',
+    'not_equal': 'neq',
+    'switch': 'if',
+    'index': 'idx',
+    'add': '+',
+    'sub': '-',
+    'div': '/',
+    'mul': '*',
+    'mod': '%',
+    'sin_half_pi': 'sin',
+    'cos_half_pi': 'cos',
+    'set_pixels': 'spx',
+    'new_grid': 'new',
+    'exclude': 'exc',
+    'count_values': 'cval',
+    'rebuild_grid': 'rbld',
+
+    '.max_x': '.mx',    # Grid attribute
+    '.max_y': '.my',    # Grid attribute
+    '.width': '.w',    # Grid attribute
+    '.height': '.h',    # Grid attribute
+
+}
 # ======================================================================== Implementation of DSL ========================================================================
 
 def new_grid(w: int, h: int, bg_color) -> Grid:
@@ -489,6 +576,27 @@ def greater_than(a: int, b: int) -> bool:
     else:
         return False
 
+def rebuild_grid(grid: Grid, obj_list: List[Grid]) -> Grid:
+    output_grid = np.copy(grid.cells_as_numpy())
+
+    # TODO: auto-detect background color by "removing" all objects from grid and
+    # seeing that is the main color that remains.
+
+    for obj in obj_list:
+        # Zero out cells in output_grid based on obj.old_mask
+        for y in range(obj.height):
+            for x in range(obj.width):
+                if obj.old_mask[y, x]:
+                    output_grid[obj.ul_y + y, obj.ul_x + x] = 0
+        
+        # Set pixels in output_grid based on obj.new_mask and obj.cells
+        for y in range(obj.height):
+            for x in range(obj.width):
+                if obj.new_mask[y, x]:
+                    output_grid[obj.ul_y + y, obj.ul_x + x] = obj.cells[y][x]
+
+    return output_grid
+
 def switch(conditions, operations, otherwise):
     '''
     This is essentially an if/else statement. The logic of this primitive is somewhat complex because we implicitly
@@ -767,6 +875,7 @@ def logical_xor(a: Union[bool, List[bool]], b: Union[bool, List[bool]]) -> Union
         # Single vs Single: simple XOR
         return a ^ b
 
+# TODO: how can this handle new_mask vs old_mask logic in Grids???
 def set_pixels(target_grid: Union[Grid, List[Grid]], 
                set_x: Union[List[DIM], List[List[DIM]]], 
                set_y: Union[List[DIM], List[List[DIM]]],
@@ -1011,6 +1120,7 @@ arg_counts = [
     2,
     2,
     2,
+    2,
     1,
     1,
     1,
@@ -1067,6 +1177,7 @@ semantics = {
     'keep': keep,
     'exclude': exclude,
     'count_values': count_values,
+    'rebuild_grid': rebuild_grid,
     'del': lambda x: x,       # This is actually a special primitive that is implemented at the program execution level
                               # where state memroy management is possible.
 

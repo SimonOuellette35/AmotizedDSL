@@ -1,4 +1,5 @@
 from typing import List, Tuple
+import re
 
 
 class ProgUtils:
@@ -20,6 +21,8 @@ class ProgUtils:
     step (decoding phase):
 
         [SOS, primitive, SOP, arg1(, attr), ARG_SEP, arg2(, attr), ARG_SEP, ..., EOS]
+
+    4 - LLM format: this format is used to interface with an LLM.
     '''
 
     SOS_TOKEN = 0           # Start of sentence
@@ -78,7 +81,6 @@ class ProgUtils:
             # This is a reference idx (or an integer constant)
             return token_str
 
-
     @staticmethod
     def convert_token_subseq(instr_step, primitives):
         '''
@@ -125,6 +127,89 @@ class ProgUtils:
         label_seq.append(ProgUtils.EOS_TOKEN)
 
         return label_seq
+
+    @staticmethod
+    def convert_token_sub_seq_to_llm(step_token_seq, primitives):
+        '''
+        This function converts an instruction step in a program in token sequence format into an intermediate representation.
+        '''
+        primitive = step_token_seq[1] - ProgUtils.NUM_SPECIAL_TOKENS
+        prim_code = prim_text = primitives.inverse_lookup(primitive)
+
+        if prim_text in primitives.text_to_code:
+            prim_code = primitives.text_to_code[prim_text]
+
+        arg_tokens = []
+        llm_txt = f"{prim_code}"
+        
+        for arg_idx in range(3, len(step_token_seq)):
+            arg = step_token_seq[arg_idx]
+
+            if arg == ProgUtils.ARG_SEP_TOKEN or arg == ProgUtils.EOS_TOKEN:
+                if len(arg_tokens) == 1:
+                    arg_id = arg_tokens[0] - ProgUtils.NUM_SPECIAL_TOKENS
+                    if arg_id < 10:
+                        llm_txt += f' {arg_id}'
+                    else:
+                        ref_id = arg_id - len(primitives.semantics)
+                        llm_txt += f' id{ref_id}'
+                    arg_tokens = []
+                elif len(arg_tokens) == 2:
+                    obj = arg_tokens[0] - ProgUtils.NUM_SPECIAL_TOKENS
+                    attr = arg_tokens[1] - ProgUtils.NUM_SPECIAL_TOKENS
+
+                    attr_code = primitives.inverse_lookup(attr)
+
+                    if attr_code in primitives.text_to_code:
+                        attr_code = primitives.text_to_code[attr_code]
+
+                    ref_id = obj - len(primitives.semantics)                    
+                    llm_txt += f' id{ref_id}{attr_code}'
+                    arg_tokens = []
+                else:
+                    break
+            else:
+                arg_tokens.append(arg)
+
+        return llm_txt + '\n'
+
+    @staticmethod
+    def convert_llm_instr_to_token_subseq(llm_instr, primitives):
+        txt_tokens = re.split(r'\s+', llm_instr.strip())
+
+        token_subseq = [ProgUtils.SOS_TOKEN]
+        token_id = 0
+        for tok_idx, tok in enumerate(txt_tokens):
+            if tok_idx == 0:
+                token_id = primitives.code_to_token_id(tok)
+                prim_id = token_id + ProgUtils.NUM_SPECIAL_TOKENS
+                token_subseq.append(prim_id)
+                token_subseq.append(ProgUtils.SOP_TOKEN)
+            else:
+                if 'id' in tok:
+                    # Handle id or id.attr
+                    if '.' in tok:
+                        # e.g., id3.w or id3.attr
+                        id_part, attr_part = tok.split('.', 1)
+                        attr_part = f".{attr_part}"
+
+                        obj_id = int(id_part.replace('id', ''))
+                        # Find the token id for the attribute
+                        attr_token = primitives.code_to_token_id(attr_part)
+                        token_subseq.append(obj_id + len(primitives.semantics) + ProgUtils.NUM_SPECIAL_TOKENS)
+                        token_subseq.append(attr_token + ProgUtils.NUM_SPECIAL_TOKENS)
+                    else:
+                        # Just idN
+                        obj_id = int(tok.replace('id', ''))
+                        token_subseq.append(obj_id + len(primitives.semantics) + ProgUtils.NUM_SPECIAL_TOKENS)
+                else:
+                    token_subseq.append(int(tok) + ProgUtils.NUM_SPECIAL_TOKENS)
+                
+                if tok_idx < len(txt_tokens) - 1:
+                    token_subseq.append(ProgUtils.ARG_SEP_TOKEN)
+
+        token_subseq.append(ProgUtils.EOS_TOKEN)
+        return token_subseq
 
     @staticmethod
     def convert_prog_to_token_seq(program, primitives):
