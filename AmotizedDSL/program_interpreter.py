@@ -72,6 +72,7 @@ def execute_step(step_token_seq, states, primitives, verbose=True):
     token_args = step_token_seq[1]
 
     result = []
+    is_del = False
     for example in states:
     
         resolved_args = []
@@ -97,15 +98,17 @@ def execute_step(step_token_seq, states, primitives, verbose=True):
             resolved_args.append(operations)
             resolved_args.append(otherwise)
         elif prim_name == 'del':
-            return DeleteAction(token_args[-1] - len(primitives.semantics))
+            result.append(DeleteAction(token_args[-1] - len(primitives.semantics)))
+            is_del = True
         else:
             for arg in token_args:
                 tmp_arg = resolve_arg(arg, example, primitives, verbose)
                 resolved_args.append(tmp_arg)
 
-        # Step 3: Execute the instruction step
-        example_result = prim_func(*resolved_args)
-        result.append(example_result)
+        if not is_del:
+            # Step 3: Execute the instruction step
+            example_result = prim_func(*resolved_args)
+            result.append(example_result)
 
     return result
 
@@ -147,7 +150,11 @@ def execute_instruction_step_batch(instr_step_batch, intermediate_state_batch, p
         intermediate_state = intermediate_state_batch[idx]
 
         if instr_step[0] == ProgUtils.EOS_TOKEN:
-            batch_outputs.append(None)
+            outputs = []
+            for k in range(len(intermediate_state_batch)):
+                outputs.append(None)
+
+            batch_outputs.append(outputs)
         else:
             tmp_output = execute_instruction_step(instr_step, intermediate_state, primitives)
             batch_outputs.append(tmp_output)
@@ -183,6 +190,10 @@ def execute_instruction_step(instr_step, intermediate_state, primitives, verbose
             if verbose:
                 print("Instruction step output = ", prog_output)
 
+            if prog_output is None:
+                print("ERROR: execute_step output is None!")
+                exit(-1)
+                
             return prog_output
         except:
             # Capture and display the traceback of the exception
