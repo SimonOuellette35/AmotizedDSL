@@ -70,39 +70,43 @@ def execute_step(step_token_seq, states, primitives, verbose=True):
     
     # Step 2: parse the arguments (if any)
     token_args = step_token_seq[1]
+
+    result = []
+    for example in states:
     
-    resolved_args = []
+        resolved_args = []
 
-    if prim_name == 'switch':
-        # 'switch' is a special statement, in that the number of arguments is dynamic, and
-        # some logic must be used to determine which are the conditions and which are the operations.
-        otherwise = resolve_arg(token_args[-1], states, primitives, verbose)
+        if prim_name == 'switch':
+            # 'switch' is a special statement, in that the number of arguments is dynamic, and
+            # some logic must be used to determine which are the conditions and which are the operations.
+            otherwise = resolve_arg(token_args[-1], example, primitives, verbose)
 
-        conditions_range = (len(token_args) - 1) // 2
+            conditions_range = (len(token_args) - 1) // 2
 
-        conditions = []
-        for arg_idx in range(conditions_range):
-            tmp_arg = resolve_arg(token_args[arg_idx], states, primitives, verbose)
-            conditions.append(tmp_arg)
+            conditions = []
+            for arg_idx in range(conditions_range):
+                tmp_arg = resolve_arg(token_args[arg_idx], example, primitives, verbose)
+                conditions.append(tmp_arg)
 
-        operations = []
-        for arg_idx in range(conditions_range, len(token_args) - 1):
-            tmp_arg = resolve_arg(token_args[arg_idx], states, primitives, verbose)
-            operations.append(tmp_arg)
+            operations = []
+            for arg_idx in range(conditions_range, len(token_args) - 1):
+                tmp_arg = resolve_arg(token_args[arg_idx], example, primitives, verbose)
+                operations.append(tmp_arg)
 
-        resolved_args.append(conditions)
-        resolved_args.append(operations)
-        resolved_args.append(otherwise)
-    elif prim_name == 'del':
-        return DeleteAction(token_args[-1] - len(primitives.semantics))
-    else:
-        for arg in token_args:
-            tmp_arg = resolve_arg(arg, states, primitives, verbose)
-            resolved_args.append(tmp_arg)
+            resolved_args.append(conditions)
+            resolved_args.append(operations)
+            resolved_args.append(otherwise)
+        elif prim_name == 'del':
+            return DeleteAction(token_args[-1] - len(primitives.semantics))
+        else:
+            for arg in token_args:
+                tmp_arg = resolve_arg(arg, example, primitives, verbose)
+                resolved_args.append(tmp_arg)
 
-    # Step 3: Execute the instruction step
-    result = prim_func(*resolved_args)
-    
+        # Step 3: Execute the instruction step
+        example_result = prim_func(*resolved_args)
+        result.append(example_result)
+
     return result
 
 def execute(token_seq_list, state, primitives):
