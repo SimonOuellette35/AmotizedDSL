@@ -47,6 +47,7 @@ def resolve_arg(arg, states, primitives, verbose=True):
         elif arg >= len(primitives.semantics):
             # resolve the reference
             ref_idx = arg - len(primitives.semantics)
+            print("ref_idx = ", ref_idx)
             return states[ref_idx]
         else:
             print("==> BUG: this case shouldn't happen in resolve_arg.")
@@ -58,7 +59,7 @@ def get_num_args(prim: int, DSL):
 def execute_step(step_token_seq, states, primitives, verbose=True):
     '''
     @param step_token_seq: a tuple of tokens (integers) representing the step to execute.
-    @param state: List of states, each representing the output of the previous tokens and whether it was resolved or not.
+    @param state: [k, num states, variable]
 
     @return Returns the new intermediate state after executing the step.
     '''
@@ -100,7 +101,9 @@ def execute_step(step_token_seq, states, primitives, verbose=True):
             return DeleteAction(token_args[-1] - len(primitives.semantics))
         else:
             for arg in token_args:
+                print("arg = ", arg)
                 tmp_arg = resolve_arg(arg, example, primitives, verbose)
+                print("tmp_arg = ", tmp_arg)
                 resolved_args.append(tmp_arg)
 
         # Step 3: Execute the instruction step
@@ -118,6 +121,8 @@ def execute(token_seq_list, state, primitives):
 
     @return the output of the program, necessarily a Grid.
     '''
+    print("len(state) ==> ", len(state))
+    print("len(state[0]) ==> ", len(state[0]))
     for step_idx, _ in enumerate(token_seq_list):
         token_tuple = ProgUtils.convert_token_seq_to_token_tuple(token_seq_list[step_idx], primitives)
 
@@ -127,13 +132,16 @@ def execute(token_seq_list, state, primitives):
         
         output = execute_step(token_tuple, state, primitives)
 
-        if isinstance(output, DeleteAction):
+        print("output = ", output)
+        if isinstance(output[0], DeleteAction):
+            print("==> DeleteAction")
             idx_to_remove = output.state_idx
 
             # Delete the element at idx_to_remove from the state
             state = [s for i, s in enumerate(state) if i != idx_to_remove]
         else:
-            state.append(output)
+            for k_idx in range(len(state)):
+                state[k_idx].append(output[k_idx])
 
     return state[-1]
 
