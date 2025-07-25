@@ -47,7 +47,6 @@ def resolve_arg(arg, states, primitives, verbose=True):
         elif arg >= len(primitives.semantics):
             # resolve the reference
             ref_idx = arg - len(primitives.semantics)
-            print("ref_idx = ", ref_idx)
             return states[ref_idx]
         else:
             print("==> BUG: this case shouldn't happen in resolve_arg.")
@@ -103,9 +102,7 @@ def execute_step(step_token_seq, states, primitives, verbose=True):
             is_del = True
         else:
             for arg in token_args:
-                print("arg = ", arg)
                 tmp_arg = resolve_arg(arg, example, primitives, verbose)
-                print("tmp_arg = ", tmp_arg)
                 resolved_args.append(tmp_arg)
 
         if not is_del:
@@ -124,8 +121,6 @@ def execute(token_seq_list, state, primitives):
 
     @return the output of the program, necessarily a Grid.
     '''
-    print("len(state) ==> ", len(state))
-    print("len(state[0]) ==> ", len(state[0]))
     for step_idx, _ in enumerate(token_seq_list):
         token_tuple = ProgUtils.convert_token_seq_to_token_tuple(token_seq_list[step_idx], primitives)
 
@@ -135,18 +130,20 @@ def execute(token_seq_list, state, primitives):
         
         output = execute_step(token_tuple, state, primitives)
 
-        print("output = ", output)
         if isinstance(output[0], DeleteAction):
-            print("==> DeleteAction")
-            idx_to_remove = output.state_idx
+            idx_to_remove = output[0].state_idx
 
             # Delete the element at idx_to_remove from the state
-            state = [s for i, s in enumerate(state) if i != idx_to_remove]
+            for k_idx in range(len(state)):
+                state[k_idx] = [s for i, s in enumerate(state[k_idx]) if i != idx_to_remove]
         else:
             for k_idx in range(len(state)):
                 state[k_idx].append(output[k_idx])
 
-    return state[-1]
+    last_states = []
+    for k_idx in range(len(state)):
+        last_states.append(state[k_idx][-1])
+    return last_states
 
 
 def execute_instruction_step_batch(instr_step_batch, intermediate_state_batch, primitives):
