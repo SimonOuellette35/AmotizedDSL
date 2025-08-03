@@ -181,6 +181,9 @@ class ProgUtils:
             token_subseq = [ProgUtils.SOS_TOKEN]
             token_id = 0
             for tok_idx, tok in enumerate(txt_tokens):
+                if tok is None:
+                    return None
+                
                 if tok_idx == 0:
                     token_id = primitives.code_to_token_id(tok)
 
