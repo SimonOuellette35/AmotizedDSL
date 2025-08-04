@@ -250,7 +250,7 @@ text_to_code = {
 }
 # ======================================================================== Implementation of DSL ========================================================================
 
-def new_grid(w: int, h: int, bg_color) -> Grid:
+def new_grid(w: int, h: int, bg_color) -> GridObject:
     if isinstance(bg_color, List):
         bg_color = bg_color[0]
 
@@ -261,10 +261,10 @@ def new_grid(w: int, h: int, bg_color) -> Grid:
         h = h[0]
 
     cells = np.ones((h, w)) * bg_color
-    return Grid(cells)
+    return GridObject.from_grid(cells)
 
-def get_width(g: Union[Grid, List[Grid]]) -> Union[DIM, List[DIM]]:
-    if isinstance(g, Grid):
+def get_width(g: Union[GridObject, List[GridObject]]) -> Union[DIM, List[DIM]]:
+    if isinstance(g, GridObject):
         return g.width
     else:
         widths = []
@@ -272,8 +272,8 @@ def get_width(g: Union[Grid, List[Grid]]) -> Union[DIM, List[DIM]]:
             widths.append(grid.width)
         return widths
 
-def get_height(g: Union[Grid, List[Grid]]) -> Union[DIM, List[DIM]]:
-    if isinstance(g, Grid):
+def get_height(g: Union[GridObject, List[GridObject]]) -> Union[DIM, List[DIM]]:
+    if isinstance(g, GridObject):
         return g.height
     else:
         heights = []
@@ -347,10 +347,10 @@ def get_index(list: List[T], i: int) -> Union[T, List[T]]:
     else:
         return list[i]
 
-def count_values(values: List[int], data_list: Union[List[int], Grid]) -> List[int]:
+def count_values(values: List[int], data_list: Union[List[int], GridObject]) -> List[int]:
 
     counts = [0] * len(values)
-    if isinstance(data_list, Grid):
+    if isinstance(data_list, GridObject):
         for v_idx, v in enumerate(values):
             for px in data_list.pixels:
                 if v == px[2]:
@@ -765,7 +765,7 @@ def switch(conditions, operations, otherwise):
         # Here the condition is just a constant.
         return switch_single_constant(conditions, operations, otherwise)
 
-def colorOf(g: Grid, x, y) -> COLOR:
+def colorOf(g: GridObject, x, y) -> COLOR:
     def single_grid_colorOf(g, x, y):   
         if isinstance(x, list) and isinstance(y, list):
             color_list = []
@@ -783,11 +783,8 @@ def colorOf(g: Grid, x, y) -> COLOR:
     else:
         return single_grid_colorOf(g, x, y)
 
-def subgrid(g: Grid, x1: DIM, y1: DIM, x2: DIM, y2: DIM) -> Grid:
-    return g.cells[y1:y2-1][x1:x2-1]
-
-def colorSet(g: Union[Grid, List[Grid]]) -> Union[List[COLOR], List[List[COLOR]]]:
-    if isinstance(g, Grid):
+def colorSet(g: Union[GridObject, List[GridObject]]) -> Union[List[COLOR], List[List[COLOR]]]:
+    if isinstance(g, GridObject):
         pixels = [pixel[2] for pixel in g.pixels]
         colors = list(set(pixels))
         colors.sort()
@@ -802,14 +799,14 @@ def colorSet(g: Union[Grid, List[Grid]]) -> Union[List[COLOR], List[List[COLOR]]
 
         return all_colors
 
-def keep(input_list: Union[List[int], List[Grid]], flags: List[bool]) -> Union[List[int], List[Grid]]:
+def keep(input_list: Union[List[int], List[GridObject]], flags: List[bool]) -> Union[List[int], List[GridObject]]:
     output = []
     for idx in range(len(input_list)):
         if flags[idx]:
             output.append(input_list[idx])
     return output
 
-def exclude(input_list: Union[List[int], List[Grid]], flags: List[bool]) -> Union[List[int], List[Grid]]:
+def exclude(input_list: Union[List[int], List[GridObject]], flags: List[bool]) -> Union[List[int], List[GridObject]]:
     output = []
     for idx in range(len(input_list)):
         if not flags[idx]:
@@ -1047,12 +1044,7 @@ def crop(g: Union[GridObject, List[GridObject]], x1, y1, x2, y2) -> GridObject:
 
         return output_grids
 
-def set_ul(g: Grid, x: int, y: int) -> Grid:
-    g.ul_x = x
-    g.ul_y = y
-    return g
-
-def max_x(g: Union[Grid, List[Grid]]) -> Union[int, List[DIM]]:
+def max_x(g: Union[GridObject, List[GridObject]]) -> Union[int, List[DIM]]:
     if isinstance(g, List):
         output = []
         for tmp_g in g:
@@ -1061,7 +1053,7 @@ def max_x(g: Union[Grid, List[Grid]]) -> Union[int, List[DIM]]:
     else:
         return g.width - 1
 
-def max_y(g: Union[Grid, List[Grid]]) -> Union[int, List[DIM]]:
+def max_y(g: Union[GridObject, List[GridObject]]) -> Union[int, List[DIM]]:
     if isinstance(g, List):
         output = []
         for tmp_g in g:
@@ -1070,8 +1062,8 @@ def max_y(g: Union[Grid, List[Grid]]) -> Union[int, List[DIM]]:
     else:
         return g.height - 1
 
-def get_ul_x(g: Union[Grid, List[Grid]]) -> Union[DIM, List[DIM]]:
-    if isinstance(g, Grid):
+def get_ul_x(g: Union[GridObject, List[GridObject]]) -> Union[DIM, List[DIM]]:
+    if isinstance(g, GridObject):
         return g.ul_x
     else:
         output = []
@@ -1079,45 +1071,15 @@ def get_ul_x(g: Union[Grid, List[Grid]]) -> Union[DIM, List[DIM]]:
             output.append(grid.ul_x)
         return output
 
-def get_ul_y(g: Union[Grid, List[Grid]]) -> Union[DIM, List[DIM]]:
-    if isinstance(g, Grid):
+def get_ul_y(g: Union[GridObject, List[GridObject]]) -> Union[DIM, List[DIM]]:
+    if isinstance(g, GridObject):
         return g.ul_y
     else:
         output = []
         for grid in g:
             output.append(grid.ul_y)
         return output
-
-def get_lr_x(g: Union[Grid, List[Grid]]) -> Union[DIM, List[DIM]]:
-    if isinstance(g, Grid):
-        return g.ul_x + g.width - 1
-    else:
-        output = []
-        for grid in g:
-            output.append(grid.ul_x + grid.width - 1)
-        return output
-
-def get_lr_y(g: Union[Grid, List[Grid]]) -> Union[DIM, List[DIM]]:
-    if isinstance(g, Grid):
-        return g.ul_y + g.height - 1
-    else:
-        output = []
-        for grid in g:
-            output.append(grid.ul_y + grid.height - 1)
-        return output
-    
-def get_pixels(g: Union[Grid, List[Grid]]) -> Union[List[Pixel], List[List[Pixel]]]:
-    if isinstance(g, Grid):
-        return [Pixel(x, y, c) for x, y, c in g.pixels]
-    else:
-        output = []
-        for grid in g:
-            output.append([Pixel(x, y, c) for x, y, c in grid.pixels])
-        return output
-
-def get_range(a: int, b: int) -> List[int]:
-    return np.arange(a, b+1)
-
+   
 
 # =================================================================== Number of arguments for each primitive =================================================================
 
