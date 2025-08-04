@@ -14,36 +14,22 @@ class Pixel:
         self.y = y
         self.c = c
 
-class Grid:
+class GridObject:
 
-    def __init__(self, cells, ul_x=0, ul_y=0, prev_width=None, prev_height=None, prev_ul_x=None, prev_ul_y=None):
-        self.height = len(cells)
-        self.width = len(cells[0])
-
-        if prev_height is None:
-            self.orig_height = self.height
-        else:
-            self.orig_height = prev_height
-
-        if prev_width is None:
-            self.orig_width = self.width
-        else:
-            self.orig_width = prev_width
-
-        if prev_ul_x is None:
-            self.orig_ul_x = ul_x
-        else:
-            self.orig_ul_x = prev_ul_x
-
-        if prev_ul_y is None:
-            self.orig_ul_y = ul_y
-        else:
-            self.orig_ul_y = prev_ul_y
-
-        self.ul_x = int(ul_x)
-        self.ul_y = int(ul_y)
+    def __init__(self, pixels):
+        min_y = min(pixel.y for pixel in pixels)
+        max_y = max(pixel.y for pixel in pixels)
+        min_x = min(pixel.x for pixel in pixels)
+        max_x = max(pixel.x for pixel in pixels)
         
-        self.pixels = self.from_grid(cells)  # pixels is a list of [(x, y, color)]
+        self.height = max_y - min_y + 1
+        self.width = max_x - min_x + 1
+
+        self.ul_x = min_x
+        self.ul_y = min_y
+        
+        self.orig_pixels = np.copy(pixels)
+        self.pixels = np.copy(pixels)
 
     def from_grid(self, cells):
         pixels = []
@@ -106,34 +92,33 @@ class Grid:
         return grid
 
     @staticmethod
-    def get_grid_list(grid, object_mask):
-        # From a grid and an object instance mask, generate a list of Grid instances
-        # corresponding to the separate objects in the grid (excluding the background)
-    
+    def get_grid_list(grid, objects_mask):
+        ''' 
+        From a grid and an object instances mask, generate a list of Grid instances
+        corresponding to the separate objects in the grid (excluding the background)
+
+        Objects_mask is a 2D matrix in which each (x, y) coordinate corresponds to the index
+        of the object instance this pixel belongs to.
+
+        Returns a list of GridObject instances that are all the foreground objects.
+        '''
+
         # Find all unique instance IDs in the object mask (excluding 0 which is background)
-        instance_ids = np.unique(object_mask)
+        instance_ids = np.unique(objects_mask)
+        instance_ids = instance_ids[instance_ids != 0]  # Exclude 0 (background)
 
         grid_list = []
         for id in instance_ids:
-            # Find the smallest rectangle that surrounds/includes all instances of this id in object_mask
-            # Find all coordinates where this instance ID appears
-            instance_coords = np.where(object_mask == id)
-            y_coords = instance_coords[0]
-            x_coords = instance_coords[1]
-            
-            # Calculate bounding box
-            min_y, max_y = np.min(y_coords), np.max(y_coords)
-            min_x, max_x = np.min(x_coords), np.max(x_coords)
-            
-            # Extract the subgrid for this instance
-            instance_grid = grid[min_y:max_y+1, min_x:max_x+1]
-            
-            # Create object mask for this instance (True where object_mask equals this ID)
-            instance_mask = (object_mask[min_y:max_y+1, min_x:max_x+1] == id)
-            
-            # Create a new Grid instance for this object
-            instance_grid_obj = Grid(instance_grid, instance_mask, min_x, min_y)
-            grid_list.append(instance_grid_obj)
+            # Get all (x, y) coordinates in objects_mask that correspond to the value id
+            coords = np.argwhere(objects_mask == id)
+            coords_set = set(map(tuple, coords))  # Convert to set of (y, x) tuples for fast lookup
+
+            # From grid.pixels, select all pixel instances whose .x and .y match these coordinates
+            object_pixels = [pixel for pixel in grid.pixels if (pixel.y, pixel.x) in coords_set]
+
+            # create a new Grid instance for this object and add to grid_list
+            new_grid = GridObject(object_pixels)
+            grid_list.append(new_grid)
 
         return grid_list
     
@@ -212,23 +197,25 @@ prim_indices = {
     'crop': 29,
     'colorOf': 30,
     'set_pixels': 31,
-    'new_grid': 32,
-    'keep': 33,
-    'exclude': 34,
-    'count_values': 35,
-    'rebuild_grid': 36,
-    'del': 37,
+    'set_x': 32,
+    'set_y': 33,
+    'new_grid': 34,
+    'keep': 35,
+    'exclude': 36,
+    'count_values': 37,
+    'rebuild_grid': 38,
+    'del': 39,
 
     # Object attributes
-    '.x': 38,        # PIXEL attribute
-    '.y': 39,        # PIXEL attribute
-    '.c': 40,        # PIXEL attribute
-    '.max_x': 41,    # Grid attribute
-    '.max_y': 42,    # Grid attribute
-    '.width': 43,    # Grid attribute
-    '.height': 44,    # Grid attribute
-    '.ul_x': 45,     # Grid attribute
-    '.ul_y': 46      # Grid attribute
+    '.x': 40,        # PIXEL attribute
+    '.y': 41,        # PIXEL attribute
+    '.c': 42,        # PIXEL attribute
+    '.max_x': 43,    # Grid attribute
+    '.max_y': 44,    # Grid attribute
+    '.width': 45,    # Grid attribute
+    '.height': 46,    # Grid attribute
+    '.ul_x': 47,     # Grid attribute
+    '.ul_y': 48      # Grid attribute
 }
 
 text_to_code = {
@@ -248,6 +235,8 @@ text_to_code = {
     'sin_half_pi': 'sin',
     'cos_half_pi': 'cos',
     'set_pixels': 'spx',
+    'set_x': 'sx',
+    'set_y': 'sy',
     'new_grid': 'new',
     'exclude': 'exc',
     'count_values': 'cval',
@@ -592,26 +581,27 @@ def greater_than(a: int, b: int) -> bool:
     else:
         return False
 
-def rebuild_grid(grid: Grid, obj_list: List[Grid]) -> Grid:
-    output_grid = np.copy(grid.cells_as_numpy())
-
-    # TODO: auto-detect background color by "removing" all objects from grid and
-    # seeing that is the main color that remains.
+def rebuild_grid(grid: GridObject, obj_list: List[GridObject]) -> GridObject:
+    '''
+    Starting from an input grid, copy-paste the list of objects from obj_list onto
+    the grid.
+    '''
+    output_pixels = grid.pixels
 
     for obj in obj_list:
-        # Zero out cells in output_grid based on obj.old_mask
-        for y in range(obj.height):
-            for x in range(obj.width):
-                if obj.old_mask[y, x]:
-                    output_grid[obj.ul_y + y, obj.ul_x + x] = 0
-        
-        # Set pixels in output_grid based on obj.new_mask and obj.cells
-        for y in range(obj.height):
-            for x in range(obj.width):
-                if obj.new_mask[y, x]:
-                    output_grid[obj.ul_y + y, obj.ul_x + x] = obj.cells[y][x]
+        # First, zero out all pixels in output_pixels whose (x, y) match those in obj.orig_pixels
+        orig_coords = set((p.x, p.y) for p in obj.orig_pixels)
+        for pixel in output_pixels:
+            if (pixel.x, pixel.y) in orig_coords:
+                pixel.c = 0
 
-    return output_grid
+        # Then, set all pixels in output_pixels whose (x, y) match those in obj.pixels to their '.c' values
+        pixel_map = {(p.x, p.y): p.c for p in obj.pixels}
+        for pixel in output_pixels:
+            if (pixel.x, pixel.y) in pixel_map:
+                pixel.c = pixel_map[(pixel.x, pixel.y)]
+
+    return GridObject(output_pixels)
 
 def switch(conditions, operations, otherwise):
     '''
@@ -891,14 +881,13 @@ def logical_xor(a: Union[bool, List[bool]], b: Union[bool, List[bool]]) -> Union
         # Single vs Single: simple XOR
         return a ^ b
 
-# TODO: how can this handle new_mask vs old_mask logic in Grids???
-def set_pixels(target_grid: Union[Grid, List[Grid]], 
+def set_pixels(target_grid: Union[GridObject, List[GridObject]], 
                set_x: Union[List[DIM], List[List[DIM]]], 
                set_y: Union[List[DIM], List[List[DIM]]],
-               colors: Union[List[COLOR], List[List[COLOR]]]) -> Union[Grid, List[Grid]]:
+               colors: Union[List[COLOR], List[List[COLOR]]]) -> Union[GridObject, List[GridObject]]:
 
     # if the target coord is out-of-bounds, extend the target grid as needed (this is especially useful for tiling tasks)
-    def set_single_grid_pixels(target_grid: Grid, set_x: Union[DIM, List[DIM]], set_y: Union[DIM, List[DIM]], colors: Union[COLOR, List[COLOR]]) -> Grid:
+    def set_single_grid_pixels(target_grid: GridObject, set_x: Union[DIM, List[DIM]], set_y: Union[DIM, List[DIM]], colors: Union[COLOR, List[COLOR]]) -> GridObject:
         
         if isinstance(set_x, List):
             set_x = [int(x) for x in set_x]
@@ -960,7 +949,7 @@ def set_pixels(target_grid: Union[Grid, List[Grid]],
 
             new_cells[y_coord, x_coord] = color
 
-        return Grid(new_cells)
+        return GridObject.from_grid(new_cells)
 
     if isinstance(target_grid, List):
         output_grids = []
@@ -977,7 +966,47 @@ def set_pixels(target_grid: Union[Grid, List[Grid]],
     else:
         return set_single_grid_pixels(target_grid, set_x, set_y, colors)
 
-def crop(g: Union[Grid, List[Grid]], x1, y1, x2, y2) -> Grid:
+def set_x(grid: Union[GridObject, List[GridObject]], x_values: Union[List[int], List[List[int]]]) -> Union[GridObject, List[GridObject]]:
+    def set_grid_x(grid: GridObject, x_values: List[int]) -> GridObject:
+        # Assign to each grid.pixels element's .x attribute the corresponding value in x_values
+        new_pixels = []
+        for idx, pixel in enumerate(grid.pixels):
+            # pixel is a tuple (x, y, c)
+            new_pixel = (x_values[idx], pixel[1], pixel[2])
+            new_pixels.append(new_pixel)
+        return GridObject(new_pixels)
+    
+    if isinstance(grid, GridObject):
+        return set_grid_x(grid, x_values)
+    else:
+        grid_list = []
+        for g_idx, g in enumerate(grid):
+            tmp_g = set_grid_x(g, x_values[g_idx])
+            grid_list.append(tmp_g)
+
+        return grid_list
+
+def set_y(grid: Union[GridObject, List[GridObject]], y_values: Union[List[int], List[List[int]]]) -> Union[GridObject, List[GridObject]]:
+    def set_grid_y(grid: GridObject, y_values: List[int]) -> GridObject:
+        # Assign to each grid.pixels element's .y attribute the corresponding value in y_values
+        new_pixels = []
+        for idx, pixel in enumerate(grid.pixels):
+            # pixel is a tuple (x, y, c)
+            new_pixel = (pixel[0], y_values[idx], pixel[2])
+            new_pixels.append(new_pixel)
+        return GridObject(new_pixels)
+    
+    if isinstance(grid, GridObject):
+        return set_grid_y(grid, y_values)
+    else:
+        grid_list = []
+        for g_idx, g in enumerate(grid):
+            tmp_g = set_grid_y(g, y_values[g_idx])
+            grid_list.append(tmp_g)
+
+        return grid_list
+
+def crop(g: Union[GridObject, List[GridObject]], x1, y1, x2, y2) -> GridObject:
     def crop_grid(g, x1, y1, x2, y2):
         new_pixels = []
         for pixel in g.pixels:
@@ -986,16 +1015,9 @@ def crop(g: Union[Grid, List[Grid]], x1, y1, x2, y2) -> Grid:
                     adjusted_pixel = (pixel[0] - x1, pixel[1] - y1, pixel[2])
                     new_pixels.append(adjusted_pixel)
 
-        output_grid = copy.deepcopy(g)
-        output_grid.ul_x = output_grid.ul_x + x1
-        output_grid.ul_y = output_grid.ul_y + y1
-        output_grid.pixels = new_pixels
-        output_grid.width = max(pixel[0]+1 for pixel in new_pixels)
-        output_grid.height = max(pixel[1]+1 for pixel in new_pixels)
+        return GridObject(new_pixels)
 
-        return output_grid
-
-    if isinstance(g, Grid):
+    if isinstance(g, GridObject):
         return crop_grid(g, x1, y1, x2, y2)
     else:
         output_grids = []
@@ -1131,7 +1153,9 @@ arg_counts = [
     2,
     5,
     3,
-    4,
+    4,  # set_pixels
+    2,  # set_x
+    2,  # set_y
     3,
     2,
     2,
@@ -1189,6 +1213,8 @@ semantics = {
     # Given a list of x coordinates and y coordinates for the pixels to modify in the target grid,
     # is sets those pixels' colors to the values passed as fourth argument.
     'set_pixels': set_pixels,
+    'set_x': set_x,
+    'set_y': set_y,
     'new_grid': new_grid,
     'keep': keep,
     'exclude': exclude,
