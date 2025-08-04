@@ -130,6 +130,9 @@ def execute(token_seq_list, state, primitives):
         else:
             state.append(output)
 
+    if len(state) > 1:
+        print("==> WARNING: final state contains more than one values! Suggests missing memory management primitives!")
+
     return state[-1]
 
 

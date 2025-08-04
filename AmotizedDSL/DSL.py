@@ -29,23 +29,27 @@ class Pixel:
 
 class GridObject:
 
-    def __init__(self, pixels, orig_pixels=None):
-        self.min_y = min(pixel.y for pixel in pixels)
-        self.max_y = max(pixel.y for pixel in pixels)
-        self.min_x = min(pixel.x for pixel in pixels)
-        self.max_x = max(pixel.x for pixel in pixels)
+    def __init__(self, pixels, ul_x=0, ul_y=0):
+        self.ul_x = ul_x
+        self.ul_y = ul_y
+        
+        # Subtract ul_x from x and ul_y from y for all pixels
+        def adjust_pixels(pixels):
+            adjusted = []
+            for p in pixels:
+                tmp_pixel = Pixel(p.x - ul_x, p.y - ul_y, p.c)
+                adjusted.append(tmp_pixel)
+            return adjusted
+
+        self.pixels = adjust_pixels(pixels)
+        self.min_y = min(pixel.y for pixel in self.pixels)
+        self.max_y = max(pixel.y for pixel in self.pixels)
+        self.min_x = min(pixel.x for pixel in self.pixels)
+        self.max_x = max(pixel.x for pixel in self.pixels)
         
         self.height = self.max_y - self.min_y + 1
         self.width = self.max_x - self.min_x + 1
 
-        self.ul_x = self.min_x
-        self.ul_y = self.min_y
-        
-        if orig_pixels is None:
-            self.orig_pixels = np.copy(pixels)
-        else:
-            self.orig_pixels = np.copy(orig_pixels)
-        self.pixels = np.copy(pixels)
 
     @staticmethod
     def from_grid(cells):
@@ -129,8 +133,11 @@ class GridObject:
             # From grid.pixels, select all pixel instances whose .x and .y match these coordinates
             object_pixels = [pixel for pixel in grid.pixels if (pixel.y, pixel.x) in coords_set]
 
+            ul_x = min(pixel.x for pixel in object_pixels) if object_pixels else 0
+            ul_y = min(pixel.y for pixel in object_pixels) if object_pixels else 0
+
             # create a new Grid instance for this object and add to grid_list
-            new_grid = GridObject(object_pixels)
+            new_grid = GridObject(object_pixels, ul_x, ul_y)
             grid_list.append(new_grid)
 
         # get all pixels for mask idx 0 (the background)
@@ -628,9 +635,9 @@ def rebuild_grid(bg_grid: GridObject, obj_list: List[GridObject]) -> GridObject:
     '''
     output_pixels = bg_grid.pixels
 
-    for obj in obj_list:
+    for obj_id, obj in enumerate(obj_list):
         # Then, set all pixels in output_pixels whose (x, y) match those in obj.pixels to their '.c' values
-        pixel_map = {(p.x, p.y): p.c for p in obj.pixels}
+        pixel_map = {(p.x + obj.ul_x, p.y + obj.ul_y): p.c for p in obj.pixels}
         for pixel in output_pixels:
             if (pixel.x, pixel.y) in pixel_map:
                 pixel.c = pixel_map[(pixel.x, pixel.y)]
@@ -1003,9 +1010,9 @@ def set_x(grid: Union[GridObject, List[GridObject]], x_values: Union[List[int], 
         # Assign to each grid.pixels element's .x attribute the corresponding value in x_values
         new_pixels = []
         for idx, pixel in enumerate(grid.pixels):
-            new_pixel = Pixel(x_values[idx], pixel.y, pixel.c)
+            new_pixel = Pixel(x_values[idx] + grid.ul_x, pixel.y + grid.ul_y, pixel.c)
             new_pixels.append(new_pixel)
-        return GridObject(new_pixels, grid.pixels)
+        return GridObject(new_pixels, grid.ul_x, grid.ul_y)
     
     if isinstance(grid, GridObject):
         return set_grid_x(grid, x_values)
@@ -1022,9 +1029,9 @@ def set_y(grid: Union[GridObject, List[GridObject]], y_values: Union[List[int], 
         # Assign to each grid.pixels element's .y attribute the corresponding value in y_values
         new_pixels = []
         for idx, pixel in enumerate(grid.pixels):
-            new_pixel = Pixel(pixel.x, y_values[idx], pixel.c)
+            new_pixel = Pixel(pixel.x + grid.ul_x, y_values[idx] + grid.ul_y, pixel.c)
             new_pixels.append(new_pixel)
-        return GridObject(new_pixels, grid.pixels)
+        return GridObject(new_pixels, grid.ul_x, grid.ul_y)
     
     if isinstance(grid, GridObject):
         return set_grid_y(grid, y_values)
