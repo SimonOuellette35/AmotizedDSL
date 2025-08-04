@@ -14,29 +14,46 @@ class Pixel:
         self.y = y
         self.c = c
 
+    def __str__(self):
+        """
+        Returns a string representation of the Grid instance.
+        """
+        return f"Pixel({self.x}, {self.y}, {self.c})"
+
+    def __repr__(self):
+        """
+        Returns a string representation of the Grid instance.
+        This method is used when the object is represented in the interactive shell.
+        """
+        return self.__str__()
+
 class GridObject:
 
-    def __init__(self, pixels):
-        min_y = min(pixel.y for pixel in pixels)
-        max_y = max(pixel.y for pixel in pixels)
-        min_x = min(pixel.x for pixel in pixels)
-        max_x = max(pixel.x for pixel in pixels)
+    def __init__(self, pixels, orig_pixels=None):
+        self.min_y = min(pixel.y for pixel in pixels)
+        self.max_y = max(pixel.y for pixel in pixels)
+        self.min_x = min(pixel.x for pixel in pixels)
+        self.max_x = max(pixel.x for pixel in pixels)
         
-        self.height = max_y - min_y + 1
-        self.width = max_x - min_x + 1
+        self.height = self.max_y - self.min_y + 1
+        self.width = self.max_x - self.min_x + 1
 
-        self.ul_x = min_x
-        self.ul_y = min_y
+        self.ul_x = self.min_x
+        self.ul_y = self.min_y
         
-        self.orig_pixels = np.copy(pixels)
+        if orig_pixels is None:
+            self.orig_pixels = np.copy(pixels)
+        else:
+            self.orig_pixels = np.copy(orig_pixels)
         self.pixels = np.copy(pixels)
 
-    def from_grid(self, cells):
+    @staticmethod
+    def from_grid(cells):
         pixels = []
         for y, row in enumerate(cells):
             for x, color in enumerate(row):
-                pixels.append((int(x), int(y), int(color)))
-        return pixels
+                pixels.append(Pixel(int(x), int(y), int(color)))
+        return GridObject(pixels)
 
     @property
     def cells(self):
@@ -62,21 +79,17 @@ class GridObject:
         return grid_str
 
     def to_grid(self):
-        # Find the maximum x and y coordinates
-        max_x = int(max(pixel[0] for pixel in self.pixels))
-        max_y = int(max(pixel[1] for pixel in self.pixels))
-
         # Create a 2D list filled with zeros (black)
-        grid = np.zeros((max_y+1, max_x+1))
+        grid = np.zeros((self.max_y+1, self.max_x+1))
 
         # Fill in the colors from self.pixels
-        for x, y, color in self.pixels:
-            grid[y, x] = color
+        for px in self.pixels:
+            grid[px.y, px.x] = px.c
 
         return grid
 
     def to_grid_tuples(self):
-        if not self.pixels:
+        if len(self.pixels) == 0:
             return tuple()
 
         grid = self.to_grid()
@@ -85,7 +98,7 @@ class GridObject:
         return tuple(tuple(row) for row in grid)
 
     def to_grid_numpy(self):
-        if not self.pixels:
+        if len(self.pixels) == 0:
             return np.array([])
 
         grid = self.to_grid()
@@ -120,7 +133,34 @@ class GridObject:
             new_grid = GridObject(object_pixels)
             grid_list.append(new_grid)
 
-        return grid_list
+        # get all pixels for mask idx 0 (the background)
+        bg_coords = np.argwhere(objects_mask == 0)
+        bg_coords_set = set(map(tuple, bg_coords))  # (y, x) tuples
+        bg_pixels = [pixel for pixel in grid.pixels if (pixel.y, pixel.x) in bg_coords_set]
+
+        # Find the most common color in the background pixels
+        if bg_pixels:
+            from collections import Counter
+            color_counts = Counter([pixel.c for pixel in bg_pixels])
+            most_common_color = color_counts.most_common(1)[0][0]
+        else:
+            most_common_color = 0  # fallback if no background pixels
+
+        # Now, fill in missing background pixels (i.e., grid cells where mask is NOT 0)
+
+        # Find all coords that are not in the background (i.e., mask != 0)
+        non_bg_coords = set((pixel.y, pixel.x) for pixel in grid.pixels if objects_mask[pixel.y, pixel.x] != 0)
+
+        # Find missing background coords (i.e., those not in bg_coords_set)
+        missing_bg_coords = non_bg_coords - set((pixel.y, pixel.x) for pixel in bg_pixels)
+
+        # Add missing background pixels with the most common color
+        for y, x in missing_bg_coords:
+            bg_pixels.append(type(bg_pixels[0])(x, y, most_common_color) if bg_pixels else Pixel(x, y, most_common_color))
+
+        bg = GridObject(bg_pixels)
+
+        return grid_list, bg
     
     def __str__(self):
         """
@@ -282,7 +322,7 @@ def get_height(g: Union[GridObject, List[GridObject]]) -> Union[DIM, List[DIM]]:
         return heights
 
 def get_x(p: Union[Pixel, List[Pixel], List[List[Pixel]]]) -> Union[COLOR, List[COLOR], List[List[COLOR]]]:
-    if isinstance(p, List) and isinstance(p[0], List):
+    if isinstance(p, List) and (isinstance(p[0], List) or isinstance(p[0], np.ndarray)):
         x_value_lists = []
         for px_list in p:
             x_values = []
@@ -292,7 +332,7 @@ def get_x(p: Union[Pixel, List[Pixel], List[List[Pixel]]]) -> Union[COLOR, List[
             x_value_lists.append(x_values)
         return x_value_lists
     
-    elif isinstance(p, List):
+    elif isinstance(p, List) or isinstance(p, np.ndarray):
         x_values = []
         for px in p:
             x_values.append(px.x)
@@ -301,7 +341,7 @@ def get_x(p: Union[Pixel, List[Pixel], List[List[Pixel]]]) -> Union[COLOR, List[
         return p.x
 
 def get_y(p: Union[Pixel, List[Pixel], List[List[Pixel]]]) -> Union[COLOR, List[COLOR], List[List[COLOR]]]:
-    if isinstance(p, List) and isinstance(p[0], List):
+    if isinstance(p, List) and (isinstance(p[0], List) or isinstance(p[0], np.ndarray)):
         y_value_lists = []
         for px_list in p:
             y_values = []
@@ -311,7 +351,7 @@ def get_y(p: Union[Pixel, List[Pixel], List[List[Pixel]]]) -> Union[COLOR, List[
             y_value_lists.append(y_values)
         return y_value_lists
 
-    elif isinstance(p, List):
+    elif isinstance(p, List) or isinstance(p, np.ndarray):
         y_values = []
         for px in p:
             y_values.append(px.y)
@@ -581,20 +621,14 @@ def greater_than(a: int, b: int) -> bool:
     else:
         return False
 
-def rebuild_grid(grid: GridObject, obj_list: List[GridObject]) -> GridObject:
+def rebuild_grid(bg_grid: GridObject, obj_list: List[GridObject]) -> GridObject:
     '''
     Starting from an input grid, copy-paste the list of objects from obj_list onto
     the grid.
     '''
-    output_pixels = grid.pixels
+    output_pixels = bg_grid.pixels
 
     for obj in obj_list:
-        # First, zero out all pixels in output_pixels whose (x, y) match those in obj.orig_pixels
-        orig_coords = set((p.x, p.y) for p in obj.orig_pixels)
-        for pixel in output_pixels:
-            if (pixel.x, pixel.y) in orig_coords:
-                pixel.c = 0
-
         # Then, set all pixels in output_pixels whose (x, y) match those in obj.pixels to their '.c' values
         pixel_map = {(p.x, p.y): p.c for p in obj.pixels}
         for pixel in output_pixels:
@@ -965,13 +999,13 @@ def set_pixels(target_grid: Union[GridObject, List[GridObject]],
 
 def set_x(grid: Union[GridObject, List[GridObject]], x_values: Union[List[int], List[List[int]]]) -> Union[GridObject, List[GridObject]]:
     def set_grid_x(grid: GridObject, x_values: List[int]) -> GridObject:
+
         # Assign to each grid.pixels element's .x attribute the corresponding value in x_values
         new_pixels = []
         for idx, pixel in enumerate(grid.pixels):
-            # pixel is a tuple (x, y, c)
-            new_pixel = (x_values[idx], pixel[1], pixel[2])
+            new_pixel = Pixel(x_values[idx], pixel.y, pixel.c)
             new_pixels.append(new_pixel)
-        return GridObject(new_pixels)
+        return GridObject(new_pixels, grid.pixels)
     
     if isinstance(grid, GridObject):
         return set_grid_x(grid, x_values)
@@ -988,10 +1022,9 @@ def set_y(grid: Union[GridObject, List[GridObject]], y_values: Union[List[int], 
         # Assign to each grid.pixels element's .y attribute the corresponding value in y_values
         new_pixels = []
         for idx, pixel in enumerate(grid.pixels):
-            # pixel is a tuple (x, y, c)
-            new_pixel = (pixel[0], y_values[idx], pixel[2])
+            new_pixel = Pixel(pixel.x, y_values[idx], pixel.c)
             new_pixels.append(new_pixel)
-        return GridObject(new_pixels)
+        return GridObject(new_pixels, grid.pixels)
     
     if isinstance(grid, GridObject):
         return set_grid_y(grid, y_values)
@@ -1048,19 +1081,19 @@ def max_x(g: Union[GridObject, List[GridObject]]) -> Union[int, List[DIM]]:
     if isinstance(g, List):
         output = []
         for tmp_g in g:
-            output.append(tmp_g.width - 1)
+            output.append(tmp_g.max_x)
         return output
     else:
-        return g.width - 1
+        return g.max_x
 
 def max_y(g: Union[GridObject, List[GridObject]]) -> Union[int, List[DIM]]:
     if isinstance(g, List):
         output = []
         for tmp_g in g:
-            output.append(tmp_g.height - 1)
+            output.append(tmp_g.max_y)
         return output
     else:
-        return g.height - 1
+        return g.max_y
 
 def get_ul_x(g: Union[GridObject, List[GridObject]]) -> Union[DIM, List[DIM]]:
     if isinstance(g, GridObject):

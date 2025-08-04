@@ -26,14 +26,13 @@ def resolve_arg(arg, states, primitives, verbose=True):
         attr_func = primitives.semantics[attr_name]
 
         if attr_name in primitives.pixel_attributes:
-            # Convert list of (x,y,c) tuples into list of Pixel instances
             if isinstance(parent_obj, List):
                 pixels = []
                 for obj in parent_obj:
-                    tmp_pixels = [Pixel(x, y, c) for x, y, c in obj.pixels]    
+                    tmp_pixels = obj.pixels
                     pixels.append(tmp_pixels)
             else:
-                pixels = [Pixel(x, y, c) for x, y, c in parent_obj.pixels]
+                pixels = parent_obj.pixels
                 
             output = attr_func(pixels)
         else:
