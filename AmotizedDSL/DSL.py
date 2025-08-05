@@ -1085,11 +1085,15 @@ def set_y(grid: Union[GridObject, List[GridObject]], y_values: Union[List[int], 
         return grid_list
 
 def set_color(grid: Union[GridObject, List[GridObject]], c_values: Union[List[int], List[List[int]]]) -> Union[GridObject, List[GridObject]]:
-    def set_grid_c(grid: GridObject, c_values: List[int]) -> GridObject:
+    def set_grid_c(grid: GridObject, c_values: Union[int, List[int]]) -> GridObject:
         # Assign to each grid.pixels element's .c attribute the corresponding value in c_values
         new_pixels = []
         for idx, pixel in enumerate(grid.pixels):
-            new_pixel = Pixel(pixel.x + grid.ul_x, pixel.y + grid.ul_y, c_values[idx])
+            if isinstance(c_values, List) or isinstance(c_values, np.ndarray):
+                col = c_values[idx]
+            else:
+                col = c_values
+            new_pixel = Pixel(pixel.x + grid.ul_x, pixel.y + grid.ul_y, col)
             new_pixels.append(new_pixel)
         return GridObject(new_pixels, grid.ul_x, grid.ul_y)
     
