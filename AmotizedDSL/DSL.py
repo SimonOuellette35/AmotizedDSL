@@ -246,23 +246,24 @@ prim_indices = {
     'set_pixels': 31,
     'set_x': 32,
     'set_y': 33,
-    'new_grid': 34,
-    'keep': 35,
-    'exclude': 36,
-    'count_values': 37,
-    'rebuild_grid': 38,
-    'del': 39,
+    'set_color': 34,
+    'new_grid': 35,
+    'keep': 36,
+    'exclude': 37,
+    'count_values': 38,
+    'rebuild_grid': 39,
+    'del': 40,
 
     # Object attributes
-    '.x': 40,        # PIXEL attribute
-    '.y': 41,        # PIXEL attribute
-    '.c': 42,        # PIXEL attribute
-    '.max_x': 43,    # Grid attribute
-    '.max_y': 44,    # Grid attribute
-    '.width': 45,    # Grid attribute
-    '.height': 46,    # Grid attribute
-    '.ul_x': 47,     # Grid attribute
-    '.ul_y': 48      # Grid attribute
+    '.x': 41,        # PIXEL attribute
+    '.y': 42,        # PIXEL attribute
+    '.c': 43,        # PIXEL attribute
+    '.max_x': 44,    # Grid attribute
+    '.max_y': 45,    # Grid attribute
+    '.width': 46,    # Grid attribute
+    '.height': 47,    # Grid attribute
+    '.ul_x': 48,     # Grid attribute
+    '.ul_y': 49      # Grid attribute
 }
 
 text_to_code = {
@@ -284,6 +285,7 @@ text_to_code = {
     'set_pixels': 'spx',
     'set_x': 'sx',
     'set_y': 'sy',
+    'set_color': 'sc',
     'new_grid': 'new',
     'exclude': 'exc',
     'count_values': 'cval',
@@ -619,8 +621,28 @@ def equal(a, b):
         return equal1(a, b)
 
 
-def not_equal(a: int, b: int) -> bool:
-    return a != b
+def not_equal(a, b):
+    def not_equal1(a: int, b: int) -> bool:
+        return a != b
+
+    def not_equal2(a: List[int], b: int) -> List[bool]:
+        output = []
+        for tmp_a in a:
+            output.append(tmp_a != b)
+
+        return output
+
+    if isinstance(a, List):
+        if isinstance(a[0], List):
+            output = []
+            for idx in range(len(a)):
+                output.append(not_equal2(a[idx], b[idx]))
+            
+            return output
+        else:
+            return not_equal2(a, b)
+    else:
+        return not_equal1(a, b)
 
 def greater_than(a: int, b: int) -> bool:
     if a > b:
@@ -677,7 +699,7 @@ def switch(conditions, operations, otherwise):
         '''
         for idx, cond in enumerate(conditions):
             if cond:
-                if isinstance(operations, List) and len(operations) > 1:
+                if (isinstance(operations, List) or isinstance(operations, np.ndarray)) and len(operations) > 1:
                     return operations[idx]
                 else:
                     return operations
@@ -713,31 +735,50 @@ def switch(conditions, operations, otherwise):
             else:
                 output_list.append(return otherwise[idx])
         '''
-        list_output = []
-        for elem_idx in range(len(conditions[0])):
-
-            inner_conditions = []
-            inner_operations = []
-            inner_otherwise = []
-            
-            for cond_idx in range(len(conditions)):
-                inner_conditions.append(conditions[cond_idx][elem_idx])
-
-            if isinstance(operations, List):
-                if len(operations) > 1:
-                    inner_operations = operations[elem_idx]
+        def get_otherwise(otherwise, elem_idx, obj_elem_idx):
+            if isinstance(otherwise, List) or isinstance(otherwise, np.ndarray):
+                if isinstance(otherwise[elem_idx], List) or isinstance(otherwise[elem_idx], np.ndarray):
+                    return otherwise[elem_idx][obj_elem_idx]
                 else:
-                    inner_operations = operations[0]
+                    return otherwise[elem_idx]
             else:
-                inner_operations = operations
+                return otherwise
 
-            if isinstance(otherwise, List):
-                inner_otherwise = otherwise[elem_idx]
+        def get_operations(operations, elem_idx, obj_elem_idx):
+            if isinstance(operations, List) or isinstance(operations, np.ndarray):
+                if isinstance(operations[elem_idx], List) or isinstance(operations[elem_idx], np.ndarray):
+                    return operations[elem_idx][obj_elem_idx]
+                else:
+                    return operations[elem_idx]
             else:
-                inner_otherwise = otherwise
+                return operations
 
-            tmp_val = switch_single_constant(inner_conditions, inner_operations, inner_otherwise)
-            list_output.append(tmp_val)
+        list_output = []
+        num_objects = len(conditions)
+        for elem_idx in range(num_objects):
+
+            object_conditions = conditions[elem_idx]
+
+            if isinstance(object_conditions, List) or isinstance(object_conditions, np.ndarray):
+                obj_list_vals = []
+                for obj_cond_idx, object_cond in enumerate(object_conditions):
+                    ops = get_operations(operations, elem_idx, obj_cond_idx)
+                    oth = get_otherwise(otherwise, elem_idx, obj_cond_idx)
+
+                    if object_cond:
+                        obj_list_vals.append(ops)
+                    else:
+                        obj_list_vals.append(oth)
+
+                list_output.append(obj_list_vals)
+            else:
+                ops = get_operations(operations, elem_idx, 0)
+                oth = get_otherwise(otherwise, elem_idx, 0)
+
+                if object_conditions:
+                    list_output.append(ops)
+                else:
+                    list_output.append(oth)
 
         return list_output
 
@@ -795,13 +836,13 @@ def switch(conditions, operations, otherwise):
 
     # Overloading for list processing. Here, we differentiate the 3 main cases: one single constant condtion,
     # 1 list condition, or many if "branches" (if/elif/elif/.../else).
-    if isinstance(conditions[0], List):
+    if isinstance(conditions[0], List) or isinstance(conditions[0], np.ndarray):
         if len(conditions) > 1:
             # Here we have many conditions.
             return switch_many_lists(conditions, operations, otherwise)
         else:
             # Here there is 1 condition, but it's a list.
-            return switch_single_list(conditions, operations, otherwise)
+            return switch_single_list(conditions[0], operations[0], otherwise)
     else:
         # Here the condition is just a constant.
         return switch_single_constant(conditions, operations, otherwise)
@@ -1043,6 +1084,25 @@ def set_y(grid: Union[GridObject, List[GridObject]], y_values: Union[List[int], 
 
         return grid_list
 
+def set_color(grid: Union[GridObject, List[GridObject]], c_values: Union[List[int], List[List[int]]]) -> Union[GridObject, List[GridObject]]:
+    def set_grid_c(grid: GridObject, c_values: List[int]) -> GridObject:
+        # Assign to each grid.pixels element's .c attribute the corresponding value in c_values
+        new_pixels = []
+        for idx, pixel in enumerate(grid.pixels):
+            new_pixel = Pixel(pixel.x + grid.ul_x, pixel.y + grid.ul_y, c_values[idx])
+            new_pixels.append(new_pixel)
+        return GridObject(new_pixels, grid.ul_x, grid.ul_y)
+    
+    if isinstance(grid, GridObject):
+        return set_grid_c(grid, c_values)
+    else:
+        grid_list = []
+        for g_idx, g in enumerate(grid):
+            tmp_g = set_grid_c(g, c_values[g_idx])
+            grid_list.append(tmp_g)
+
+        return grid_list
+
 def crop(g: Union[GridObject, List[GridObject]], x1, y1, x2, y2) -> GridObject:
     def crop_grid(g, x1, y1, x2, y2):
         new_pixels = []
@@ -1158,6 +1218,7 @@ arg_counts = [
     4,  # set_pixels
     2,  # set_x
     2,  # set_y
+    2,  # set_color
     3,
     2,
     2,
@@ -1217,6 +1278,7 @@ semantics = {
     'set_pixels': set_pixels,
     'set_x': set_x,
     'set_y': set_y,
+    'set_color': set_color,
     'new_grid': new_grid,
     'keep': keep,
     'exclude': exclude,
