@@ -412,25 +412,47 @@ def count_values(values: List[int], data_list: Union[List[int], GridObject]) -> 
 
     return counts
 
-def sin_half_pi(val) -> Union[int, List[int]]:
+def sin_half_pi(val) -> Union[int, List[int], List[List[int]]]:
     # sin(pi/2 * val)
     if isinstance(val, List):
-        output_list = []
-        for v in val:
-            output_list.append(int(math.sin((np.pi / 2.) * v)))
+        if isinstance(val[0], List):
+            output_list_list = []
+            for object_idx in range(len(val)):
+                object_list = []
+                for v in val[object_idx]:
+                    object_list.append(int(math.sin((np.pi / 2.) * v)))
 
-        return output_list
+                output_list_list.append(object_list)
+
+            return output_list_list
+        else:
+            output_list = []
+            for v in val:
+                output_list.append(int(math.sin((np.pi / 2.) * v)))
+
+            return output_list
     else:
         return int(math.sin((np.pi / 2.) * val))
 
 def cos_half_pi(val) -> Union[int, List[int]]:
     # cos(pi/2 * val)
     if isinstance(val, List):
-        output_list = []
-        for v in val:
-            output_list.append(int(math.cos((np.pi / 2.) * v)))
+        if isinstance(val[0], List):
+            output_list_list = []
+            for object_idx in range(len(val)):
+                object_list = []
+                for v in val[object_idx]:
+                    object_list.append(int(math.cos((np.pi / 2.) * v)))
 
-        return output_list
+                output_list_list.append(object_list)
+
+            return output_list_list
+        else:
+            output_list = []
+            for v in val:
+                output_list.append(int(math.cos((np.pi / 2.) * v)))
+
+            return output_list
     else:
         return int(math.cos((np.pi / 2.) * val))
 
@@ -466,6 +488,16 @@ def addition(a: Union[int, List[int], List[List[int]]],
         for idx in range(len(a)):
             output_sums.append(a[idx] + b[idx])
         return output_sums
+    elif isinstance(a, List) and isinstance(a[0], List):
+        object_sums = []
+        for obj_idx in range(len(a)):
+            output_sums = []
+            for idx in range(len(a[obj_idx])):
+                output_sums.append(a[obj_idx][idx] + b)
+
+            object_sums.append(output_sums)
+
+        return object_sums
     elif isinstance(a, List):
         output_sums = []
         for idx in range(len(a)):
@@ -509,26 +541,39 @@ def subtraction(a: Union[int, List[int], List[List[int]]],
                 output_subs.append(result)
             output_sub_lists.append(output_subs)
         return output_sub_lists    
-    elif isinstance(a, list) and isinstance(b, list):
+    elif isinstance(a, List) and isinstance(b, List):
         output_subs = []
         for idx in range(len(a)):
             result = a[idx] - b[idx]
             output_subs.append(result)
         return output_subs
-    elif isinstance(a, list):
+    elif isinstance(a, List):
         output_subs = []
         for idx in range(len(a)):
             result = a[idx] - b
             output_subs.append(result)
         return output_subs
-    elif isinstance(b, list):
-        output_subs = []
-        for idx in range(len(b)):
-            result = a - b[idx]
-            output_subs.append(result)
-        return output_subs    
+    elif isinstance(b, List):
+        if isinstance(b[0], List):
+            object_list = []
+            for obj_idx in range(len(b)):
+                output_subs = []
+                for idx in range(len(b[obj_idx])):
+                    result = a - b[obj_idx][idx]
+                    output_subs.append(result)
+
+                object_list.append(output_subs)
+            return object_list
+
+        else:
+            output_subs = []
+            for idx in range(len(b)):
+                result = a - b[idx]
+                output_subs.append(result)
+            return output_subs    
     else:
         result = a - b
+
         return result
 
 def division(a: Union[int, float, List[int], List[List[int]]], 
