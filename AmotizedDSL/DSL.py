@@ -657,7 +657,10 @@ def equal(a, b):
         if isinstance(a[0], List):
             output = []
             for idx in range(len(a)):
-                output.append(equal2(a[idx], b[idx]))
+                if isinstance(b, List):
+                    output.append(equal2(a[idx], b[idx]))
+                else:
+                    output.append(equal2(a[idx], b))
             
             return output
         else:
@@ -1006,9 +1009,9 @@ def logical_xor(a: Union[bool, List[bool]], b: Union[bool, List[bool]]) -> Union
         return a ^ b
 
 def set_pixels(target_grid: Union[GridObject, List[GridObject]], 
-               set_x: Union[List[DIM], List[List[DIM]]], 
-               set_y: Union[List[DIM], List[List[DIM]]],
-               colors: Union[List[COLOR], List[List[COLOR]]]) -> Union[GridObject, List[GridObject]]:
+               set_x: Union[DIM, List[DIM], List[List[DIM]]], 
+               set_y: Union[DIM, List[DIM], List[List[DIM]]],
+               colors: Union[COLOR, List[COLOR], List[List[COLOR]]]) -> Union[GridObject, List[GridObject]]:
 
     # if the target coord is out-of-bounds, extend the target grid as needed (this is especially useful for tiling tasks)
     def set_single_grid_pixels(target_grid: GridObject, set_x: Union[DIM, List[DIM]], set_y: Union[DIM, List[DIM]], colors: Union[COLOR, List[COLOR]]) -> GridObject:
@@ -1031,6 +1034,7 @@ def set_pixels(target_grid: Union[GridObject, List[GridObject]],
         # At least one of set_x, set_y or colors must be a List and this indicates the number of elements to populate
         # for the integer cases.
         n = 0
+        broadcasting = True
         if isinstance(set_x, List):
             n = len(set_x)
         elif isinstance(set_y, List):
@@ -1038,47 +1042,73 @@ def set_pixels(target_grid: Union[GridObject, List[GridObject]],
         elif isinstance(colors, List):
             n = len(colors)
         else:
-            # ERROR: set_single_grid_pixels must have at least 1 list-type argument among set_x, set_y and colors.
-            return None
+            broadcasting = False
 
-        if isinstance(set_x, int) or isinstance(set_x, np.int64):
-            set_x = np.ones(n) * set_x
+        if broadcasting:
+            if isinstance(set_x, int) or isinstance(set_x, np.int64):
+                set_x = np.ones(n) * set_x
 
-        if isinstance(set_y, int) or isinstance(set_y, np.int64):
-            set_y = np.ones(n) * set_y
+            if isinstance(set_y, int) or isinstance(set_y, np.int64):
+                set_y = np.ones(n) * set_y
 
-        if isinstance(colors, int) or isinstance(colors, np.int64):
-            colors = np.ones(n) * colors
+            if isinstance(colors, int) or isinstance(colors, np.int64):
+                colors = np.ones(n) * colors
 
-        # Filter out negative coordinates
-        valid_indices = [i for i in range(n) if set_x[i] >= 0 and set_y[i] >= 0]
-        if not valid_indices:
-            return target_grid
+            # Filter out negative coordinates
+            valid_indices = [i for i in range(n) if set_x[i] >= 0 and set_y[i] >= 0]
+            if not valid_indices:
+                return target_grid
 
-        # Use only valid coordinates for max calculations
-        valid_x = [set_x[i] for i in valid_indices]
-        valid_y = [set_y[i] for i in valid_indices]
-        
-        max_x = max(target_grid.width, max(valid_x) + 1)
-        max_y = max(target_grid.height, max(valid_y) + 1)
-        new_cells = np.zeros((max_y, max_x))
-        for y in range(target_grid.height):
-            for x in range(target_grid.width):
-                new_cells[y][x] = target_grid.cells[y][x]
+            # Use only valid coordinates for max calculations
+            valid_x = [set_x[i] for i in valid_indices]
+            valid_y = [set_y[i] for i in valid_indices]
+            
+            max_x = max(target_grid.width, max(valid_x) + 1)
+            max_y = max(target_grid.height, max(valid_y) + 1)
+            new_cells = np.zeros((max_y, max_x))
+            for y in range(target_grid.height):
+                for x in range(target_grid.width):
+                    new_cells[y][x] = target_grid.cells[y][x]
 
-        for idx in valid_indices:
-            x_coord = int(set_x[idx])
-            y_coord = int(set_y[idx])
-            color = colors[idx]
+            for idx in valid_indices:
+                x_coord = int(set_x[idx])
+                y_coord = int(set_y[idx])
+                color = colors[idx]
 
-            new_cells[y_coord, x_coord] = color
+                new_cells[y_coord, x_coord] = color
 
-        return GridObject.from_grid(new_cells)
+            return GridObject.from_grid(new_cells)
+        else:
+            new_grid = copy.deepcopy(target_grid)
+
+            # Find the pixel in new_grid.pixels with .x == set_x and .y == set_y, and set its .c to colors
+            for pixel in new_grid.pixels:
+                if pixel.x == set_x and pixel.y == set_y:
+                    pixel.c = colors
+                    break
+
+            return new_grid
 
     if isinstance(target_grid, List):
         output_grids = []
         for idx, grid in enumerate(target_grid):
-            tmp_out = set_single_grid_pixels(grid, set_x[idx], set_y[idx], colors[idx])
+
+            if isinstance(set_x, List):
+                x_val = set_x[idx]
+            else:
+                x_val = set_x
+
+            if isinstance(set_y, List):
+                y_val = set_y[idx]
+            else:
+                y_val = set_y
+
+            if isinstance(colors, List):
+                c_val = colors[idx]
+            else:
+                c_val = colors
+
+            tmp_out = set_single_grid_pixels(grid, x_val, y_val, c_val)
             output_grids.append(tmp_out)
 
         return output_grids
@@ -1129,7 +1159,7 @@ def set_y(grid: Union[GridObject, List[GridObject]], y_values: Union[List[int], 
 
         return grid_list
 
-def set_color(grid: Union[GridObject, List[GridObject]], c_values: Union[List[int], List[List[int]]]) -> Union[GridObject, List[GridObject]]:
+def set_color(grid: Union[GridObject, List[GridObject]], c_values: Union[int, List[int], List[List[int]]]) -> Union[GridObject, List[GridObject]]:
     def set_grid_c(grid: GridObject, c_values: Union[int, List[int]]) -> GridObject:
         # Assign to each grid.pixels element's .c attribute the corresponding value in c_values
         new_pixels = []
@@ -1147,7 +1177,10 @@ def set_color(grid: Union[GridObject, List[GridObject]], c_values: Union[List[in
     else:
         grid_list = []
         for g_idx, g in enumerate(grid):
-            tmp_g = set_grid_c(g, c_values[g_idx])
+            if isinstance(c_values, List):
+                tmp_g = set_grid_c(g, c_values[g_idx])
+            else:
+                tmp_g = set_grid_c(g, c_values)
             grid_list.append(tmp_g)
 
         return grid_list
@@ -1334,7 +1367,7 @@ semantics = {
     'count_values': count_values,
     'rebuild_grid': rebuild_grid,
     'del': lambda x: x,       # This is actually a special primitive that is implemented at the program execution level
-                              # where state memroy management is possible.
+                              # where state memory management is possible.
 
     # Object attributes
     '.x': lambda pixel: get_x(pixel),
