@@ -227,43 +227,46 @@ prim_indices = {
     'color_set': 12,
     'equal': 13,
     'not_equal': 14,
-    'switch': 15,
-    'index': 16,
-    'add': 17,
-    'sub': 18,
-    'div': 19,
-    'mul': 20,
-    'mod': 21,
-    'sin_half_pi': 22,
-    'cos_half_pi': 23,
-    'or': 24,
-    'and': 25,
-    'xor': 26,    
-    'arg_min': 27,
-    'arg_max': 28,
-    'crop': 29,
-    'colorOf': 30,
-    'set_pixels': 31,
-    'set_x': 32,
-    'set_y': 33,
-    'set_color': 34,
-    'new_grid': 35,
-    'keep': 36,
-    'exclude': 37,
-    'count_values': 38,
-    'rebuild_grid': 39,
-    'del': 40,
+    'less_than': 15,
+    'switch': 16,
+    'index': 17,
+    'add': 18,
+    'sub': 19,
+    'div': 20,
+    'mul': 21,
+    'mod': 22,
+    'sin_half_pi': 23,
+    'cos_half_pi': 24,
+    'or': 25,
+    'and': 26,
+    'xor': 27,    
+    'arg_min': 28,
+    'arg_max': 29,
+    'crop': 30,
+    'colorOf': 31,
+    'set_pixels': 32,
+    'set_x': 33,
+    'set_y': 34,
+    'set_color': 35,
+    'new_grid': 36,
+    'keep': 37,
+    'exclude': 38,
+    'count_values': 39,
+    'count_items': 40,
+    'rebuild_grid': 41,
+    'neighbours4': 42,
+    'del': 43,
 
     # Object attributes
-    '.x': 41,        # PIXEL attribute
-    '.y': 42,        # PIXEL attribute
-    '.c': 43,        # PIXEL attribute
-    '.max_x': 44,    # Grid attribute
-    '.max_y': 45,    # Grid attribute
-    '.width': 46,    # Grid attribute
-    '.height': 47,    # Grid attribute
-    '.ul_x': 48,     # Grid attribute
-    '.ul_y': 49      # Grid attribute
+    '.x': 44,        # PIXEL attribute
+    '.y': 45,        # PIXEL attribute
+    '.c': 46,        # PIXEL attribute
+    '.max_x': 47,    # Grid attribute
+    '.max_y': 48,    # Grid attribute
+    '.width': 49,    # Grid attribute
+    '.height': 50,    # Grid attribute
+    '.ul_x': 51,     # Grid attribute
+    '.ul_y': 52      # Grid attribute
 }
 
 text_to_code = {
@@ -290,6 +293,9 @@ text_to_code = {
     'exclude': 'exc',
     'count_values': 'cval',
     'rebuild_grid': 'rbld',
+    'neighbours4': 'adj',
+    'count_items': 'len',
+    'less_than': '<',
 
     '.max_x': '.mx',    # Grid attribute
     '.max_y': '.my',    # Grid attribute
@@ -395,6 +401,64 @@ def get_index(list: List[T], i: int) -> Union[T, List[T]]:
         return output
     else:
         return list[i]
+
+def less_than(a: Union[int, List[int], List[List[int]]], b: Union[int, List[int], List[List[int]]]) -> Union[bool, List[bool], List[List[bool]]]:
+    # Handle all combinations of a and b being int or List (including nested Lists)
+    if isinstance(a, int) and isinstance(b, int):
+        return a < b
+    elif isinstance(a, int) and isinstance(b, list):
+        # a is scalar, b is list
+        return [a < bi for bi in b]
+    elif isinstance(a, list) and isinstance(b, int):
+        if isinstance(a[0], list):
+            # a is list of lists, b is scalar
+            return [[aij < b for aij in ai] for ai in a]
+        else:
+            # a is list, b is scalar
+            return [ai < b for ai in a]
+    elif isinstance(a, list) and isinstance(b, list):
+        # Both are lists
+        if len(a) != len(b):
+            raise ValueError("Lists must have same length for elementwise less_than")
+        # Check for nested lists
+        if len(a) > 0 and isinstance(a[0], list) and isinstance(b[0], list):
+            # Both are list of lists
+            if len(a) != len(b):
+                raise ValueError("Outer lists must have same length for elementwise less_than")
+            return [less_than(ai, bi) for ai, bi in zip(a, b)]
+        elif len(a) > 0 and isinstance(a[0], list):
+            # a is list of lists, b is flat list
+            return [less_than(ai, b) for ai in a]
+        elif len(b) > 0 and isinstance(b[0], list):
+            # b is list of lists, a is flat list
+            return [less_than(a, bi) for bi in b]
+        else:
+            # Both are flat lists
+            return [ai < bi for ai, bi in zip(a, b)]
+    else:
+        raise TypeError("Unsupported input types for less_than")
+
+def count_items(data_list: Union[List[T], List[List[T]], List[List[List[T]]]]) -> Union[int, List[int], List[List[int]]]:
+    if isinstance(data_list[0], List):
+        if isinstance(data_list[0][0], List):
+            len_list = []
+            for inner_list in data_list:
+                len_inner_list = []
+                for inner_inner_list in inner_list:
+                    len_inner_list.append(len(inner_inner_list))
+                
+                len_list.append(len_inner_list)
+
+            return len_list
+
+        else:
+            len_list = []
+            for inner_list in data_list:
+                len_list.append(len(inner_list))
+
+            return len_list
+    else:
+        return len(data_list)
 
 def count_values(values: List[int], data_list: Union[List[int], GridObject]) -> List[int]:
 
@@ -1008,6 +1072,32 @@ def logical_xor(a: Union[bool, List[bool]], b: Union[bool, List[bool]]) -> Union
         # Single vs Single: simple XOR
         return a ^ b
 
+def neighbours4(grid: Union[GridObject, List[GridObject]]) -> Union[List[List[Pixel]], List[List[List[Pixel]]]]:
+
+    def single_grid_neighbours4(grid: GridObject) -> List[List[Pixel]]:
+        # For each pixel in grid.pixels, find all 4-adjacent pixels in grid.pixels
+        result = []
+        pixel_set = set((p.x, p.y) for p in grid.pixels)
+        coord_to_pixel = {(p.x, p.y): p for p in grid.pixels}
+        for p in grid.pixels:
+            neighbours = []
+            for dx, dy in [(-1,0), (1,0), (0,-1), (0,1)]:
+                nx, ny = p.x + dx, p.y + dy
+                if (nx, ny) in pixel_set:
+                    neighbours.append(coord_to_pixel[(nx, ny)])
+            result.append(neighbours)
+        return result
+    
+    if isinstance(grid, GridObject):
+        return single_grid_neighbours4(grid)
+    else:
+        list_of_lists = []
+        for g in grid:
+            tmp_neighbours4 = single_grid_neighbours4(g)
+            list_of_lists.append(tmp_neighbours4)
+
+        return list_of_lists
+
 def set_pixels(target_grid: Union[GridObject, List[GridObject]], 
                set_x: Union[DIM, List[DIM], List[List[DIM]]], 
                set_y: Union[DIM, List[DIM], List[List[DIM]]],
@@ -1276,11 +1366,12 @@ arg_counts = [
     0,
     0,
     0,
-    1,
-    1,
-    1,
-    2,
-    2,
+    1,  # identity
+    1,  # get_objects
+    1,  # color_set
+    2,  # equal
+    2,  # not equal
+    2,  # less_than
     3,
     2,
     2,
@@ -1301,11 +1392,13 @@ arg_counts = [
     2,  # set_x
     2,  # set_y
     2,  # set_color
-    3,
-    2,
-    2,
-    2,
-    2,
+    3,  # new_grid
+    2,  # keep
+    2,  # exclude
+    2,  # count_values
+    1,  # count_items
+    2,  # rebuild_grid
+    1,  # neighbours4
     1,
     1,
     1,
@@ -1338,6 +1431,7 @@ semantics = {
     'color_set': colorSet,
     'equal': equal,
     'not_equal': not_equal,
+    'less_than': less_than,
     'switch': switch,
     'index': get_index,
     'add': addition,
@@ -1365,7 +1459,9 @@ semantics = {
     'keep': keep,
     'exclude': exclude,
     'count_values': count_values,
+    'count_items': count_items,
     'rebuild_grid': rebuild_grid,
+    'neighbours4': neighbours4,
     'del': lambda x: x,       # This is actually a special primitive that is implemented at the program execution level
                               # where state memory management is possible.
 
