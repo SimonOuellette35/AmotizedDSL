@@ -77,7 +77,6 @@ def execute_step(step_token_seq, states, primitives, verbose=True):
     result = []
     is_del = False
     for example in states:
-    
         resolved_args = []
 
         if prim_name == 'switch':
@@ -131,17 +130,20 @@ def execute(token_seq_list, state, primitives):
         if token_tuple[0] == -1:
             return state[-1]
 
-        #print("==> Executing: ", token_tuple)        
+        #print("==> Executing: ", token_tuple)   
         output = execute_step(token_tuple, state, primitives)
         
         if isinstance(output[0], DeleteAction):
+            #print("==> Output: DeleteAction")
             idx_to_remove = output[0].state_idx
 
             # Delete the element at idx_to_remove from the state
             for k_idx in range(len(state)):
                 state[k_idx] = [s for i, s in enumerate(state[k_idx]) if i != idx_to_remove]
         else:
+            #print("==> Output: ")
             for k_idx in range(len(state)):
+                #print(output[k_idx])
                 state[k_idx].append(output[k_idx])
 
     if len(state[0]) > 1:

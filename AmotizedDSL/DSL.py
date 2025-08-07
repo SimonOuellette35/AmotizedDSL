@@ -2,6 +2,7 @@ from typing import List, TypeVar, Union
 import numpy as np
 import math
 import copy
+from collections import Counter
 
 
 T = TypeVar('T')
@@ -124,57 +125,64 @@ class GridObject:
         Objects_mask is a 2D matrix in which each (x, y) coordinate corresponds to the index
         of the object instance this pixel belongs to.
 
+        grid: [k, GridObject]
+        objects_mask: [k, np.ndarray]
+
         Returns a list of GridObject instances that are all the foreground objects.
         '''
+        k_obj_lists = []
+        k_bgs = []
+        for k in range(len(grid)):
+            # Find all unique instance IDs in the object mask (excluding 0 which is background)
+            instance_ids = np.unique(objects_mask[k])
+            instance_ids = instance_ids[instance_ids != 0]  # Exclude 0 (background)
 
-        # Find all unique instance IDs in the object mask (excluding 0 which is background)
-        instance_ids = np.unique(objects_mask)
-        instance_ids = instance_ids[instance_ids != 0]  # Exclude 0 (background)
+            grid_list = []
+            for id in instance_ids:
+                # Get all (x, y) coordinates in objects_mask that correspond to the value id
+                coords = np.argwhere(objects_mask[k] == id)
+                coords_set = set(map(tuple, coords))  # Convert to set of (y, x) tuples for fast lookup
 
-        grid_list = []
-        for id in instance_ids:
-            # Get all (x, y) coordinates in objects_mask that correspond to the value id
-            coords = np.argwhere(objects_mask == id)
-            coords_set = set(map(tuple, coords))  # Convert to set of (y, x) tuples for fast lookup
+                # From grid.pixels, select all pixel instances whose .x and .y match these coordinates
+                object_pixels = [pixel for pixel in grid[k].pixels if (pixel.y, pixel.x) in coords_set]
 
-            # From grid.pixels, select all pixel instances whose .x and .y match these coordinates
-            object_pixels = [pixel for pixel in grid.pixels if (pixel.y, pixel.x) in coords_set]
+                ul_x = min(pixel.x for pixel in object_pixels) if object_pixels else 0
+                ul_y = min(pixel.y for pixel in object_pixels) if object_pixels else 0
 
-            ul_x = min(pixel.x for pixel in object_pixels) if object_pixels else 0
-            ul_y = min(pixel.y for pixel in object_pixels) if object_pixels else 0
+                # create a new Grid instance for this object and add to grid_list
+                new_grid = GridObject(object_pixels, ul_x, ul_y)
+                grid_list.append(new_grid)
 
-            # create a new Grid instance for this object and add to grid_list
-            new_grid = GridObject(object_pixels, ul_x, ul_y)
-            grid_list.append(new_grid)
+            k_obj_lists.append(grid_list)
 
-        # get all pixels for mask idx 0 (the background)
-        bg_coords = np.argwhere(objects_mask == 0)
-        bg_coords_set = set(map(tuple, bg_coords))  # (y, x) tuples
-        bg_pixels = [pixel for pixel in grid.pixels if (pixel.y, pixel.x) in bg_coords_set]
+            # get all pixels for mask idx 0 (the background)
+            bg_coords = np.argwhere(objects_mask[k] == 0)
+            bg_coords_set = set(map(tuple, bg_coords))  # (y, x) tuples
+            bg_pixels = [pixel for pixel in grid[k].pixels if (pixel.y, pixel.x) in bg_coords_set]
 
-        # Find the most common color in the background pixels
-        if bg_pixels:
-            from collections import Counter
-            color_counts = Counter([pixel.c for pixel in bg_pixels])
-            most_common_color = color_counts.most_common(1)[0][0]
-        else:
-            most_common_color = 0  # fallback if no background pixels
+            # Find the most common color in the background pixels
+            if bg_pixels:
+                color_counts = Counter([pixel.c for pixel in bg_pixels])
+                most_common_color = color_counts.most_common(1)[0][0]
+            else:
+                most_common_color = 0  # fallback if no background pixels
 
-        # Now, fill in missing background pixels (i.e., grid cells where mask is NOT 0)
+            # Now, fill in missing background pixels (i.e., grid cells where mask is NOT 0)
 
-        # Find all coords that are not in the background (i.e., mask != 0)
-        non_bg_coords = set((pixel.y, pixel.x) for pixel in grid.pixels if objects_mask[pixel.y, pixel.x] != 0)
+            # Find all coords that are not in the background (i.e., mask != 0)
+            non_bg_coords = set((pixel.y, pixel.x) for pixel in grid[k].pixels if objects_mask[k][pixel.y, pixel.x] != 0)
 
-        # Find missing background coords (i.e., those not in bg_coords_set)
-        missing_bg_coords = non_bg_coords - set((pixel.y, pixel.x) for pixel in bg_pixels)
+            # Find missing background coords (i.e., those not in bg_coords_set)
+            missing_bg_coords = non_bg_coords - set((pixel.y, pixel.x) for pixel in bg_pixels)
 
-        # Add missing background pixels with the most common color
-        for y, x in missing_bg_coords:
-            bg_pixels.append(type(bg_pixels[0])(x, y, most_common_color) if bg_pixels else Pixel(x, y, most_common_color))
+            # Add missing background pixels with the most common color
+            for y, x in missing_bg_coords:
+                bg_pixels.append(type(bg_pixels[0])(x, y, most_common_color) if bg_pixels else Pixel(x, y, most_common_color))
 
-        bg = GridObject(bg_pixels)
+            bg = GridObject(bg_pixels)
+            k_bgs.append(bg)
 
-        return grid_list, bg
+        return k_obj_lists, k_bgs
     
     def __str__(self):
         """
@@ -364,8 +372,6 @@ def unique(data: Union[List[int], List[List[int]], List[List[List[int]]]]) -> Un
         else:
             unique_sets = []
             for inner_list in data:
-                print("Inner list: ", inner_list)
-
                 unique_sets.append(list(dict.fromkeys(inner_list)))
 
             return unique_sets
@@ -456,8 +462,6 @@ def get_index(list: List[T], i: int) -> Union[T, List[T]]:
 
 def less_than(a: Union[int, List[int], List[List[int]]], b: Union[int, List[int], List[List[int]]]) -> Union[bool, List[bool], List[List[bool]]]:
     # Handle all combinations of a and b being int or List (including nested Lists)
-    print("Less_than: a = ", a)
-    print("Less than: b = ", b)
     if isinstance(a, int) and isinstance(b, int):
         return a < b
     elif isinstance(a, int) and isinstance(b, list):
@@ -466,7 +470,6 @@ def less_than(a: Union[int, List[int], List[List[int]]], b: Union[int, List[int]
     elif isinstance(a, list) and isinstance(b, int):
         if isinstance(a[0], list):
             if isinstance(a[0][0], list):
-                print("==> We have a list of list of list?")
                 output_list = []
                 for inner_list in a:
                     tmp_list = [[aij < b for aij in ai] for ai in inner_list]
@@ -474,7 +477,6 @@ def less_than(a: Union[int, List[int], List[List[int]]], b: Union[int, List[int]
 
                 return output_list
             else:
-                print("==> We have a list of list")
                 # a is list of lists, b is scalar
                 return [[aij < b for aij in ai] for ai in a]
         else:
@@ -641,6 +643,7 @@ def addition(a: Union[int, List[int], List[List[int]]],
 
 def subtraction(a: Union[int, List[int], List[List[int]]], 
                 b: Union[int, List[int], List[List[int]]]) -> Union[int, List[int]]:
+    
     if isinstance(a, List) and isinstance(a[0], List) and isinstance(b, List) and isinstance(b[0], List):
         output_subs_lists = []
         for list_idx in range(len(a)):
@@ -1140,7 +1143,6 @@ def arg_max(arg_list: List[int], val_list: List[int]) -> List[int]:
     return arg_list[max_idx]
 
 def logical_or(a: Union[bool, List[bool]], b: Union[bool, List[bool]]) -> Union[bool, List[bool]]:
-    print("==> Logical OR:")
     if isinstance(a, List) and isinstance(b, List):
         # List vs List: pairwise OR
         if len(a) != len(b):
