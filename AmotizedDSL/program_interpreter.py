@@ -61,7 +61,7 @@ def get_num_args(prim: int, DSL):
 def execute_step(step_token_seq, states, primitives, verbose=True):
     '''
     @param step_token_seq: a tuple of tokens (integers) representing the step to execute.
-    @param state: List of states, each representing the output of the previous tokens and whether it was resolved or not.
+    @param state: [k, num states, variable]
 
     @return Returns the new intermediate state after executing the step.
     '''
@@ -73,39 +73,46 @@ def execute_step(step_token_seq, states, primitives, verbose=True):
     
     # Step 2: parse the arguments (if any)
     token_args = step_token_seq[1]
+
+    result = []
+    is_del = False
+    for example in states:
     
-    resolved_args = []
+        resolved_args = []
 
-    if prim_name == 'switch':
-        # 'switch' is a special statement, in that the number of arguments is dynamic, and
-        # some logic must be used to determine which are the conditions and which are the operations.
-        otherwise = resolve_arg(token_args[-1], states, primitives, verbose)
+        if prim_name == 'switch':
+            # 'switch' is a special statement, in that the number of arguments is dynamic, and
+            # some logic must be used to determine which are the conditions and which are the operations.
+            otherwise = resolve_arg(token_args[-1], example, primitives, verbose)
 
-        conditions_range = (len(token_args) - 1) // 2
+            conditions_range = (len(token_args) - 1) // 2
 
-        conditions = []
-        for arg_idx in range(conditions_range):
-            tmp_arg = resolve_arg(token_args[arg_idx], states, primitives, verbose)
-            conditions.append(tmp_arg)
+            conditions = []
+            for arg_idx in range(conditions_range):
+                tmp_arg = resolve_arg(token_args[arg_idx], example, primitives, verbose)
+                conditions.append(tmp_arg)
 
-        operations = []
-        for arg_idx in range(conditions_range, len(token_args) - 1):
-            tmp_arg = resolve_arg(token_args[arg_idx], states, primitives, verbose)
-            operations.append(tmp_arg)
+            operations = []
+            for arg_idx in range(conditions_range, len(token_args) - 1):
+                tmp_arg = resolve_arg(token_args[arg_idx], example, primitives, verbose)
+                operations.append(tmp_arg)
 
-        resolved_args.append(conditions)
-        resolved_args.append(operations)
-        resolved_args.append(otherwise)
-    elif prim_name == 'del':
-        return DeleteAction(token_args[-1] - len(primitives.semantics))
-    else:
-        for arg in token_args:
-            tmp_arg = resolve_arg(arg, states, primitives, verbose)
-            resolved_args.append(tmp_arg)
+            resolved_args.append(conditions)
+            resolved_args.append(operations)
+            resolved_args.append(otherwise)
+        elif prim_name == 'del':
+            result.append(DeleteAction(token_args[-1] - len(primitives.semantics)))
+            is_del = True
+        else:
+            for arg in token_args:
+                tmp_arg = resolve_arg(arg, example, primitives, verbose)
+                resolved_args.append(tmp_arg)
 
-    # Step 3: Execute the instruction step
-    result = prim_func(*resolved_args)
-    
+        if not is_del:
+            # Step 3: Execute the instruction step
+            example_result = prim_func(*resolved_args)
+            result.append(example_result)
+
     return result
 
 def execute(token_seq_list, state, primitives):
@@ -127,21 +134,23 @@ def execute(token_seq_list, state, primitives):
         #print("==> Executing: ", token_tuple)        
         output = execute_step(token_tuple, state, primitives)
         
-        if isinstance(output, DeleteAction):
-            #print(f"==> Deleted variable id{output.state_idx}")
-            idx_to_remove = output.state_idx
+        if isinstance(output[0], DeleteAction):
+            idx_to_remove = output[0].state_idx
 
             # Delete the element at idx_to_remove from the state
-            state = [s for i, s in enumerate(state) if i != idx_to_remove]
+            for k_idx in range(len(state)):
+                state[k_idx] = [s for i, s in enumerate(state[k_idx]) if i != idx_to_remove]
         else:
-            #print("==> Output: ", output)
-            state.append(output)
+            for k_idx in range(len(state)):
+                state[k_idx].append(output[k_idx])
 
-    if len(state) > 1:
+    if len(state[0]) > 1:
         print("==> WARNING: final state contains more than one values! Suggests missing memory management primitives!")
 
-    return state[-1]
-
+    last_states = []
+    for k_idx in range(len(state)):
+        last_states.append(state[k_idx][-1])
+    return last_states
 
 def execute_instruction_step_batch(instr_step_batch, intermediate_state_batch, primitives):
     batch_outputs = []
@@ -152,7 +161,11 @@ def execute_instruction_step_batch(instr_step_batch, intermediate_state_batch, p
         intermediate_state = intermediate_state_batch[idx]
 
         if instr_step[0] == ProgUtils.EOS_TOKEN:
-            batch_outputs.append(None)
+            outputs = []
+            for k in range(len(intermediate_state_batch)):
+                outputs.append(None)
+
+            batch_outputs.append(outputs)
         else:
             tmp_output = execute_instruction_step(instr_step, intermediate_state, primitives)
             batch_outputs.append(tmp_output)
@@ -188,6 +201,10 @@ def execute_instruction_step(instr_step, intermediate_state, primitives, verbose
             if verbose:
                 print("Instruction step output = ", prog_output)
 
+            if prog_output is None:
+                print("ERROR: execute_step output is None!")
+                exit(-1)
+                
             return prog_output
         except:
             # Capture and display the traceback of the exception
