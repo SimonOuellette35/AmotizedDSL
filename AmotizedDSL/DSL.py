@@ -27,6 +27,13 @@ class Pixel:
         """
         return self.__str__()
 
+    def __eq__(self, pixel):
+        if self.x == pixel.x and self.y == pixel.y and self.c == pixel.c:
+            return True
+        else:
+            return False
+
+
 class GridObject:
 
     def __init__(self, pixels, ul_x=0, ul_y=0):
@@ -223,50 +230,53 @@ prim_indices = {
 
     # Main functional primitives
     'identity': 10, 
-    'get_objects1': 11,
+    'get_objects': 11,
     'color_set': 12,
     'equal': 13,
     'not_equal': 14,
     'less_than': 15,
     'switch': 16,
     'index': 17,
-    'add': 18,
-    'sub': 19,
-    'div': 20,
-    'mul': 21,
-    'mod': 22,
-    'sin_half_pi': 23,
-    'cos_half_pi': 24,
-    'or': 25,
-    'and': 26,
-    'xor': 27,    
-    'arg_min': 28,
-    'arg_max': 29,
-    'crop': 30,
-    'colorOf': 31,
-    'set_pixels': 32,
-    'set_x': 33,
-    'set_y': 34,
-    'set_color': 35,
-    'new_grid': 36,
-    'keep': 37,
-    'exclude': 38,
-    'count_values': 39,
-    'count_items': 40,
-    'rebuild_grid': 41,
-    'neighbours4': 42,
-    'del': 43,
+    'unique': 18,
+    'add': 19,
+    'sub': 20,
+    'div': 21,
+    'mul': 22,
+    'mod': 23,
+    'sin_half_pi': 24,
+    'cos_half_pi': 25,
+    'or': 26,
+    'and': 27,
+    'xor': 28,    
+    'arg_min': 29,
+    'arg_max': 30,
+    'crop': 31,
+    'colorOf': 32,
+    'set_pixels': 33,
+    'set_x': 34,
+    'set_y': 35,
+    'set_color': 36,
+    'new_grid': 37,
+    'keep': 38,
+    'exclude': 39,
+    'set_difference': 40,
+    'count_values': 41,
+    'count_items': 42,
+    'rebuild_grid': 43,
+    'neighbours4': 44,
+    'neighbours8': 45,
+    'del': 46,
 
     # Object attributes
-    '.x': 44,        # PIXEL attribute
-    '.y': 45,        # PIXEL attribute
-    '.c': 46,        # PIXEL attribute
-    '.max_x': 47,    # Grid attribute
-    '.max_y': 48,    # Grid attribute
-    '.width': 49,    # Grid attribute
-    '.height': 50,    # Grid attribute
-    '.ul_x': 51,     # Grid attribute
-    '.ul_y': 52      # Grid attribute
+    '.x': 47,        # PIXEL attribute
+    '.y': 48,        # PIXEL attribute
+    '.c': 49,        # PIXEL attribute
+    '.max_x': 50,    # Grid attribute
+    '.max_y': 51,    # Grid attribute
+    '.width': 52,    # Grid attribute
+    '.height': 53,    # Grid attribute
+    '.ul_x': 54,     # Grid attribute
+    '.ul_y': 55      # Grid attribute
 }
 
 text_to_code = {
@@ -278,6 +288,7 @@ text_to_code = {
     'not_equal': 'neq',
     'switch': 'if',
     'index': 'idx',
+    'unique': 'uq',
     'add': '+',
     'sub': '-',
     'div': '/',
@@ -291,9 +302,11 @@ text_to_code = {
     'set_color': 'sc',
     'new_grid': 'new',
     'exclude': 'exc',
+    'set_difference': 'dif',
     'count_values': 'cval',
     'rebuild_grid': 'rbld',
-    'neighbours4': 'adj',
+    'neighbours4': 'nb4',
+    'neighbours8': 'nb8',
     'count_items': 'len',
     'less_than': '<',
 
@@ -336,13 +349,44 @@ def get_height(g: Union[GridObject, List[GridObject]]) -> Union[DIM, List[DIM]]:
             heights.append(grid.height)
         return heights
 
+def unique(data: Union[List[int], List[List[int]], List[List[List[int]]]]) -> Union[List[int], List[List[int]], List[List[List[int]]]]:
+    if isinstance(data[0], List):
+        if isinstance(data[0][0], List):
+            unique_sets = []
+            for inner_list in data:
+                unique_set_list = []
+                for inner_inner_list in inner_list:
+                    unique_set_list.append(list(dict.fromkeys(inner_inner_list)))
+
+                unique_sets.append(unique_set_list)
+
+            return unique_sets
+        else:
+            unique_sets = []
+            for inner_list in data:
+                print("Inner list: ", inner_list)
+
+                unique_sets.append(list(dict.fromkeys(inner_list)))
+
+            return unique_sets
+    else:
+        return list(dict.fromkeys(data))
+    
 def get_x(p: Union[Pixel, List[Pixel], List[List[Pixel]]]) -> Union[COLOR, List[COLOR], List[List[COLOR]]]:
     if isinstance(p, List) and (isinstance(p[0], List) or isinstance(p[0], np.ndarray)):
         x_value_lists = []
         for px_list in p:
             x_values = []
-            for px in px_list:
-                x_values.append(px.x)
+            if isinstance(px_list[0], List):
+                for px_inner_list in px_list:
+                    x_value_list = []
+                    for px in px_inner_list:
+                        x_value_list.append(px.x)
+
+                    x_values.append(x_value_list)
+            else:
+                for px in px_list:
+                    x_values.append(px.x)
 
             x_value_lists.append(x_values)
         return x_value_lists
@@ -360,8 +404,16 @@ def get_y(p: Union[Pixel, List[Pixel], List[List[Pixel]]]) -> Union[COLOR, List[
         y_value_lists = []
         for px_list in p:
             y_values = []
-            for px in px_list:
-                y_values.append(px.y)
+            if isinstance(px_list[0], List):
+                for px_inner_list in px_list:
+                    y_value_list = []
+                    for px in px_inner_list:
+                        y_value_list.append(px.y)
+
+                    y_values.append(y_value_list)
+            else:
+                for px in px_list:
+                    y_values.append(px.y)
 
             y_value_lists.append(y_values)
         return y_value_lists
@@ -404,6 +456,8 @@ def get_index(list: List[T], i: int) -> Union[T, List[T]]:
 
 def less_than(a: Union[int, List[int], List[List[int]]], b: Union[int, List[int], List[List[int]]]) -> Union[bool, List[bool], List[List[bool]]]:
     # Handle all combinations of a and b being int or List (including nested Lists)
+    print("Less_than: a = ", a)
+    print("Less than: b = ", b)
     if isinstance(a, int) and isinstance(b, int):
         return a < b
     elif isinstance(a, int) and isinstance(b, list):
@@ -411,8 +465,18 @@ def less_than(a: Union[int, List[int], List[List[int]]], b: Union[int, List[int]
         return [a < bi for bi in b]
     elif isinstance(a, list) and isinstance(b, int):
         if isinstance(a[0], list):
-            # a is list of lists, b is scalar
-            return [[aij < b for aij in ai] for ai in a]
+            if isinstance(a[0][0], list):
+                print("==> We have a list of list of list?")
+                output_list = []
+                for inner_list in a:
+                    tmp_list = [[aij < b for aij in ai] for ai in inner_list]
+                    output_list.append(tmp_list)
+
+                return output_list
+            else:
+                print("==> We have a list of list")
+                # a is list of lists, b is scalar
+                return [[aij < b for aij in ai] for ai in a]
         else:
             # a is list, b is scalar
             return [ai < b for ai in a]
@@ -1008,6 +1072,57 @@ def exclude(input_list: Union[List[int], List[GridObject]], flags: List[bool]) -
     
     return output
 
+def set_difference(
+    a: Union[List[int], List[List[int]], List[List[List[int]]], List['Pixel'], List[List['Pixel']], List[List[List['Pixel']]]],
+    b: Union[List[int], List[List[int]], List[List[List[int]]], List['Pixel'], List[List['Pixel']], List[List[List['Pixel']]]]
+) -> Union[List[int], List[List[int]], List[List[List[int]]], List['Pixel'], List[List['Pixel']], List[List[List['Pixel']]]]:
+    """
+    Computes the set difference between a and b, supporting nested lists and both int and Pixel types.
+    """
+    def item_in(item, collection):
+        # For int, Pixel, or other types, rely on __eq__ for comparison
+        for elem in collection:
+            if item == elem:
+                return True
+        return False
+
+    if isinstance(a, list) and isinstance(b, list):
+        if len(a) > 0 and isinstance(a[0], list):
+            # a is list of lists
+            if len(b) > 0 and isinstance(b[0], list):
+                # Both a and b are list of lists
+                if len(a) != len(b):
+                    raise ValueError("Outer lists must have same length for set_difference")
+                if len(a) > 0 and isinstance(a[0][0], list) and isinstance(b[0][0], list):
+                    # Both are list of list of lists
+                    difference_list = []
+                    for ai, bi in zip(a, b):
+                        if not (isinstance(ai, list) and isinstance(bi, list)):
+                            raise ValueError("Expected list of lists for set_difference")
+                        if len(ai) != len(bi):
+                            raise ValueError("Inner lists must have same length for set_difference")
+                        inner_diff = []
+                        for aii, bii in zip(ai, bi):
+                            # aii and bii are lists
+                            inner_diff.append([item for item in aii if not item_in(item, bii)])
+                        difference_list.append(inner_diff)
+                    return difference_list
+                else:
+                    # Both are list of lists
+                    return [set_difference(ai, bi) for ai, bi in zip(a, b)]
+            else:
+                # a is list of lists, b is flat list
+                return [set_difference(ai, b) for ai in a]
+        elif len(b) > 0 and isinstance(b[0], list):
+            # a is flat list, b is list of lists
+            return [set_difference(a, bi) for bi in b]
+        else:
+            # Both are flat lists
+            return [item for item in a if not item_in(item, b)]
+    else:
+        # If a or b is not a list, just return a (should not happen in this DSL)
+        return a
+
 def arg_min(arg_list: List[int], val_list: List[int]) -> List[int]:
     if len(arg_list) != len(val_list):
         raise ValueError("arg_list and val_list must have same length")
@@ -1025,11 +1140,20 @@ def arg_max(arg_list: List[int], val_list: List[int]) -> List[int]:
     return arg_list[max_idx]
 
 def logical_or(a: Union[bool, List[bool]], b: Union[bool, List[bool]]) -> Union[bool, List[bool]]:
+    print("==> Logical OR:")
     if isinstance(a, List) and isinstance(b, List):
         # List vs List: pairwise OR
         if len(a) != len(b):
             raise ValueError("Lists must have same length for pairwise OR")
-        return [a[i] or b[i] for i in range(len(a))]
+        if isinstance(a[0], List) and isinstance(b[0], List):
+            result = []
+            for obj_idx in range(len(a)):
+                obj_result = [a[obj_idx][i] or b[obj_idx][i] for i in range(len(a[obj_idx]))]
+                result.append(obj_result)
+        else:    
+            result = [a[i] or b[i] for i in range(len(a))]
+
+        return result
     elif isinstance(a, List):
         # List vs Single: each element OR'd with single boolean
         return [x or b for x in a]
@@ -1040,12 +1164,19 @@ def logical_or(a: Union[bool, List[bool]], b: Union[bool, List[bool]]) -> Union[
         # Single vs Single: simple OR
         return a or b
 
-def logical_and(a: Union[bool, List[bool]], b: Union[bool, List[bool]]) -> Union[bool, List[bool]]:
+def logical_and(a: Union[bool, List[bool], List[List[bool]]], b: Union[bool, List[bool], List[List[bool]]]) -> Union[bool, List[bool]]:
     if isinstance(a, List) and isinstance(b, List):
-        # List vs List: pairwise AND
-        if len(a) != len(b):
-            raise ValueError("Lists must have same length for pairwise OR")
-        return [a[i] and b[i] for i in range(len(a))]
+        if isinstance(a[0], List) and isinstance(b[0], List):
+            return [
+                [
+                    a[i][j] and b[i][j] for j in range(len(a[i]))
+                ] for i in range(len(a))
+            ]
+        else:
+            # List vs List: pairwise AND
+            if len(a) != len(b):
+                raise ValueError("Lists must have same length for pairwise OR")
+            return [a[i] and b[i] for i in range(len(a))]
     elif isinstance(a, List):
         # List vs Single: each element AND'ed with single boolean
         return [x and b for x in a]
@@ -1095,6 +1226,34 @@ def neighbours4(grid: Union[GridObject, List[GridObject]]) -> Union[List[List[Pi
         for g in grid:
             tmp_neighbours4 = single_grid_neighbours4(g)
             list_of_lists.append(tmp_neighbours4)
+
+        return list_of_lists
+
+def neighbours8(grid: Union[GridObject, List[GridObject]]) -> Union[List[List[Pixel]], List[List[List[Pixel]]]]:
+
+    def single_grid_neighbours8(grid: GridObject) -> List[List[Pixel]]:
+        # For each pixel in grid.pixels, find all 4-adjacent pixels in grid.pixels
+        result = []
+        pixel_set = set((p.x, p.y) for p in grid.pixels)
+        coord_to_pixel = {(p.x, p.y): p for p in grid.pixels}
+        for p in grid.pixels:
+            neighbours = []
+            for dx, dy in [(-1, -1), (-1, 0), (-1, 1),
+                           (0, -1),           (0, 1),
+                           (1, -1),  (1, 0),  (1, 1)]:
+                nx, ny = p.x + dx, p.y + dy
+                if (nx, ny) in pixel_set:
+                    neighbours.append(coord_to_pixel[(nx, ny)])
+            result.append(neighbours)
+        return result
+    
+    if isinstance(grid, GridObject):
+        return single_grid_neighbours8(grid)
+    else:
+        list_of_lists = []
+        for g in grid:
+            tmp_neighbours8 = single_grid_neighbours8(g)
+            list_of_lists.append(tmp_neighbours8)
 
         return list_of_lists
 
@@ -1372,8 +1531,9 @@ arg_counts = [
     2,  # equal
     2,  # not equal
     2,  # less_than
-    3,
-    2,
+    3,  # switch
+    2,  # index
+    1,  # unique
     2,
     2,
     2,
@@ -1395,10 +1555,12 @@ arg_counts = [
     3,  # new_grid
     2,  # keep
     2,  # exclude
+    2,  # set_difference
     2,  # count_values
     1,  # count_items
     2,  # rebuild_grid
     1,  # neighbours4
+    1,  # neighbours8
     1,
     1,
     1,
@@ -1434,6 +1596,7 @@ semantics = {
     'less_than': less_than,
     'switch': switch,
     'index': get_index,
+    'unique': unique,
     'add': addition,
     'sub': subtraction,
     'div': division,
@@ -1458,10 +1621,12 @@ semantics = {
     'new_grid': new_grid,
     'keep': keep,
     'exclude': exclude,
+    'set_difference': set_difference,
     'count_values': count_values,
     'count_items': count_items,
     'rebuild_grid': rebuild_grid,
     'neighbours4': neighbours4,
+    'neighbours8': neighbours8,
     'del': lambda x: x,       # This is actually a special primitive that is implemented at the program execution level
                               # where state memory management is possible.
 

@@ -29,7 +29,11 @@ def resolve_arg(arg, states, primitives, verbose=True):
             if isinstance(parent_obj, List):
                 pixels = []
                 for obj in parent_obj:
-                    tmp_pixels = obj.pixels
+                    if isinstance(obj, primitives.GridObject):
+                        tmp_pixels = obj.pixels
+                    else:
+                        tmp_pixels = obj
+
                     pixels.append(tmp_pixels)
             else:
                 pixels = parent_obj.pixels
@@ -119,15 +123,18 @@ def execute(token_seq_list, state, primitives):
         # If end of program instruction step, return previous output.
         if token_tuple[0] == -1:
             return state[-1]
-        
-        output = execute_step(token_tuple, state, primitives)
 
+        #print("==> Executing: ", token_tuple)        
+        output = execute_step(token_tuple, state, primitives)
+        
         if isinstance(output, DeleteAction):
+            #print(f"==> Deleted variable id{output.state_idx}")
             idx_to_remove = output.state_idx
 
             # Delete the element at idx_to_remove from the state
             state = [s for i, s in enumerate(state) if i != idx_to_remove]
         else:
+            #print("==> Output: ", output)
             state.append(output)
 
     if len(state) > 1:
@@ -184,6 +191,9 @@ def execute_instruction_step(instr_step, intermediate_state, primitives, verbose
             return prog_output
         except:
             # Capture and display the traceback of the exception
+            import traceback
+            print("Exception occurred during instruction step execution:")
+            traceback.print_exc()
             return None
     
     else:
