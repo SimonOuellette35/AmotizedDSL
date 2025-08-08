@@ -239,58 +239,60 @@ prim_indices = {
     # Main functional primitives
     'identity': 10, 
     'get_objects': 11,
-    'color_set': 12,
-    'equal': 13,
-    'not_equal': 14,
-    'less_than': 15,
-    'switch': 16,
-    'index': 17,
-    'unique': 18,
-    'add': 19,
-    'sub': 20,
-    'div': 21,
-    'mul': 22,
-    'mod': 23,
-    'sin_half_pi': 24,
-    'cos_half_pi': 25,
-    'or': 26,
-    'and': 27,
-    'xor': 28,    
-    'arg_min': 29,
-    'arg_max': 30,
-    'crop': 31,
-    'colorOf': 32,
-    'set_pixels': 33,
-    'set_x': 34,
-    'set_y': 35,
-    'set_color': 36,
-    'new_grid': 37,
-    'keep': 38,
-    'exclude': 39,
-    'set_difference': 40,
-    'count_values': 41,
-    'count_items': 42,
-    'rebuild_grid': 43,
-    'neighbours4': 44,
-    'neighbours8': 45,
-    'del': 46,
+    'get_bg': 12,
+    'color_set': 13,
+    'equal': 14,
+    'not_equal': 15,
+    'less_than': 16,
+    'switch': 17,
+    'index': 18,
+    'unique': 19,
+    'add': 20,
+    'sub': 21,
+    'div': 22,
+    'mul': 23,
+    'mod': 24,
+    'sin_half_pi': 25,
+    'cos_half_pi': 26,
+    'or': 27,
+    'and': 28,
+    'xor': 29,    
+    'arg_min': 30,
+    'arg_max': 31,
+    'crop': 32,
+    'colorOf': 33,
+    'set_pixels': 34,
+    'set_x': 35,
+    'set_y': 36,
+    'set_color': 37,
+    'new_grid': 38,
+    'keep': 39,
+    'exclude': 40,
+    'set_difference': 41,
+    'count_values': 42,
+    'count_items': 43,
+    'rebuild_grid': 44,
+    'neighbours4': 45,
+    'neighbours8': 46,
+    'del': 47,
 
     # Object attributes
-    '.x': 47,        # PIXEL attribute
-    '.y': 48,        # PIXEL attribute
-    '.c': 49,        # PIXEL attribute
-    '.max_x': 50,    # Grid attribute
-    '.max_y': 51,    # Grid attribute
-    '.width': 52,    # Grid attribute
-    '.height': 53,    # Grid attribute
-    '.ul_x': 54,     # Grid attribute
-    '.ul_y': 55      # Grid attribute
+    '.x': 48,        # PIXEL attribute
+    '.y': 49,        # PIXEL attribute
+    '.c': 50,        # PIXEL attribute
+    '.max_x': 51,    # Grid attribute
+    '.max_y': 52,    # Grid attribute
+    '.width': 53,    # Grid attribute
+    '.height': 54,    # Grid attribute
+    '.ul_x': 55,     # Grid attribute
+    '.ul_y': 56      # Grid attribute
 }
 
 text_to_code = {
     # Main functional primitives
     'identity': 'id', 
     'get_objects': 'obj',
+    'get_bg': 'bg',
     'color_set': 'col',
     'equal': 'eq',
     'not_equal': 'neq',
@@ -1046,14 +1048,14 @@ def colorOf(g: GridObject, x, y) -> COLOR:
 
 def colorSet(g: Union[GridObject, List[GridObject]]) -> Union[List[COLOR], List[List[COLOR]]]:
     if isinstance(g, GridObject):
-        pixels = [pixel[2] for pixel in g.pixels]
+        pixels = [pixel.c for pixel in g.pixels]
         colors = list(set(pixels))
         colors.sort()
         return colors
     else:
         all_colors = []
         for grid in g:
-            pixels = [pixel[2] for pixel in grid.pixels]
+            pixels = [pixel.c for pixel in grid.pixels]
             colors = list(set(pixels))
             colors.sort()
             all_colors.append(colors)
@@ -1440,9 +1442,9 @@ def crop(g: Union[GridObject, List[GridObject]], x1, y1, x2, y2) -> GridObject:
     def crop_grid(g, x1, y1, x2, y2):
         new_pixels = []
         for pixel in g.pixels:
-            if pixel[0] >= x1 and pixel[0] < x2:
-                if pixel[1] >= y1 and pixel[1] < y2:
-                    adjusted_pixel = (pixel[0] - x1, pixel[1] - y1, pixel[2])
+            if pixel.x >= x1 and pixel.x < x2:
+                if pixel.y >= y1 and pixel.y < y2:
+                    adjusted_pixel = Pixel(pixel.x - x1, pixel.y - y1, pixel.c)
                     new_pixels.append(adjusted_pixel)
 
         return GridObject(new_pixels)
@@ -1529,6 +1531,7 @@ arg_counts = [
     0,
     1,  # identity
     1,  # get_objects
+    1,  # get_bg
     1,  # color_set
     2,  # equal
     2,  # not equal
@@ -1592,6 +1595,7 @@ semantics = {
     # Main functional primitives
     'identity': lambda x: x,
     'get_objects': lambda x: x,        # TODO: to be implemented as a neural primitive
+    'get_bg': lambda x: x,             # TODO: to be implemented as a neural primitive
     'color_set': colorSet,
     'equal': equal,
     'not_equal': not_equal,
@@ -1645,52 +1649,3 @@ semantics = {
 }
 
 pixel_attributes = ['.x', '.y', '.c']
-
-# ============================================================================== Useful sub-routines =========================================================================
-
-def get_subroutine_rot90(ctx_ref, start_ref):
-    program = []
-
-    program.append(('sub', [(ctx_ref+0, '.max_y'), (ctx_ref+0, '.y')]))
-    program.append(('colorOf', [ctx_ref+0, (ctx_ref+0, '.x'), start_ref+1]))
-    program.append(('del', [start_ref+1]))
-
-    return program, start_ref+1
-
-def get_subroutine_rot180(ctx_ref, start_ref):
-    program = []
-
-    program.append(('sub', [(ctx_ref+0, '.max_x'), (ctx_ref+0, '.x')]))
-    program.append(('sub', [(ctx_ref+0, '.max_y'), (ctx_ref+0, '.y')]))
-    program.append(('colorOf', [ctx_ref+0, start_ref+1, start_ref+2]))
-    program.append(('del', [start_ref+1]))
-    program.append(('del', [start_ref+1]))
-
-    return program, start_ref+1
-
-def get_subroutine_rot270(ctx_ref, start_ref):
-    program = []
-
-    program.append(('sub', [(ctx_ref+0, '.max_x'), (ctx_ref+0, '.x')])),
-    program.append(('colorOf', [ctx_ref+0, start_ref+1, (ctx_ref+0, '.y')]))
-    program.append(('del', [start_ref+1]))
-
-    return program, start_ref+1
-
-def get_subroutine_hmirror(ctx_ref, start_ref):
-    program = []
-
-    program.append(('sub', [(ctx_ref+0, '.max_x'), (ctx_ref+0, '.x')])),
-    program.append(('colorOf', [ctx_ref+0, start_ref+1, (ctx_ref+0, '.y')]))
-    program.append(('del', [start_ref+1]))
-
-    return program, start_ref+1
-
-def get_subroutine_vmirror(ctx_ref, start_ref):
-    program = []
-
-    program.append(('sub', [(ctx_ref+0, '.max_y'), (ctx_ref+0, '.y')])),
-    program.append(('colorOf', [ctx_ref+0, (ctx_ref+0, '.x'), start_ref+1]))
-    program.append(('del', [start_ref+1]))
-
-    return program, start_ref+1
