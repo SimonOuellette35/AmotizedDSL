@@ -11,9 +11,9 @@ DIM = TypeVar('COLOR', bound=int)
 
 class Pixel:
     def __init__(self, x, y, c):
-        self.x = x
-        self.y = y
-        self.c = c
+        self.x = int(x)
+        self.y = int(y)
+        self.c = int(c)
 
     def __str__(self):
         """
@@ -72,7 +72,7 @@ class GridObject:
         return self.to_grid_tuples()
 
     def cells_as_numpy(self):
-        return self.to_grid_numpy()
+        return self.to_grid_numpy().astype(int)
 
     def to_llm(self):
         ''' 
@@ -96,7 +96,7 @@ class GridObject:
 
         # Fill in the colors from self.pixels
         for px in self.pixels:
-            grid[px.y, px.x] = px.c
+            grid[px.y, px.x] = int(px.c)
 
         return grid
 
@@ -106,8 +106,8 @@ class GridObject:
 
         grid = self.to_grid()
 
-        # Convert the 2D list to a tuple of tuples
-        return tuple(tuple(row) for row in grid)
+        # Ensure all values are integers before converting to tuple of tuples
+        return tuple(tuple(int(cell) for cell in row) for row in grid)
 
     def to_grid_numpy(self):
         if len(self.pixels) == 0:
