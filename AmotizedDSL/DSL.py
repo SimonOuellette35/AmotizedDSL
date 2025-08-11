@@ -530,10 +530,16 @@ def get_index(list: List[T], i: int) -> Union[T, List[T]]:
     if isinstance(list[0], List):
         output = []
         for sublist in list:
-            output.append(sublist[i])
+            if i < 0 or i >= len(sublist):
+                output.append(0)
+            else:
+                output.append(sublist[i])
         return output
     else:
-        return list[i]
+        if i < 0 or i >= len(list):
+            return 0
+        else:
+            return list[i]
 
 def less_than(a: Union[int, List[int], List[List[int]]], b: Union[int, List[int], List[List[int]]]) -> Union[bool, List[bool], List[List[bool]]]:
     # Handle all combinations of a and b being int or List (including nested Lists)
