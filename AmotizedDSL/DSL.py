@@ -341,6 +341,79 @@ def new_grid(w: int, h: int, bg_color) -> GridObject:
     cells = np.ones((h, w)) * bg_color
     return GridObject.from_grid(cells)
 
+def get_objects(grid: GridObject, obj_mask: List[int]) -> List[GridObject]:
+    """
+    Extracts all distinct objects from the grid using the object mask.
+    Each unique non-zero value in obj_mask corresponds to a separate object.
+    For each such value, collect all pixels with that value, using their color from the grid,
+    and create a GridObject for that object.
+    """
+    objects = []
+    # Find all unique instance IDs in the object mask (excluding 0 which is background)
+    instance_ids = np.unique(obj_mask)
+    instance_ids = instance_ids[instance_ids != 0]  # Exclude 0 (background)
+
+    for obj_id in instance_ids:
+        # Get all (y, x) coordinates in obj_mask that correspond to the value obj_id
+        coords = np.argwhere(obj_mask == obj_id)
+        pixels = []
+        for y, x in coords:
+            color = None
+            # grid can be GridObject or a numpy array
+            if isinstance(grid, GridObject):
+                # Find the pixel in grid.pixels with matching x, y
+                for px in grid.pixels:
+                    if px.x == x and px.y == y:
+                        color = px.c
+                        break
+                if color is None:
+                    # fallback: get color from grid.to_grid()
+                    color = int(grid.to_grid()[y, x])
+            else:
+                color = int(grid[y, x])
+            pixels.append(Pixel(int(x), int(y), int(color)))
+        if pixels:
+            # Optionally, set ul_x, ul_y to min x/y of pixels
+            ul_x = min(pixel.x for pixel in pixels)
+            ul_y = min(pixel.y for pixel in pixels)
+            obj = GridObject(pixels, ul_x, ul_y)
+            objects.append(obj)
+    
+    return objects
+
+
+def get_bg(grid: GridObject, obj_mask: List[int]) -> GridObject:
+    """
+    Extracts the background object (instance id 0) from the grid using the object mask.
+    All pixels in obj_mask with value 0 are considered background.
+    Returns a single GridObject representing the background.
+    """
+    # Get all (y, x) coordinates in obj_mask that correspond to the value 0 (background)
+    bg_coords = np.argwhere(obj_mask == 0)
+    pixels = []
+    for y, x in bg_coords:
+        color = None
+        if isinstance(grid, GridObject):
+            # Find the pixel in grid.pixels with matching x, y
+            for px in grid.pixels:
+                if px.x == x and px.y == y:
+                    color = px.c
+                    break
+            if color is None:
+                color = int(grid.to_grid()[y, x])
+        else:
+            color = int(grid[y, x])
+        pixels.append(Pixel(int(x), int(y), int(color)))
+    if pixels:
+        ul_x = min(pixel.x for pixel in pixels)
+        ul_y = min(pixel.y for pixel in pixels)
+        bg_obj = GridObject(pixels, ul_x, ul_y)
+        return bg_obj
+    else:
+        # If no background pixels, return an empty GridObject
+        return GridObject([])
+
+
 def get_width(g: Union[GridObject, List[GridObject]]) -> Union[DIM, List[DIM]]:
     if isinstance(g, GridObject):
         return g.width
@@ -1594,8 +1667,8 @@ semantics = {
 
     # Main functional primitives
     'identity': lambda x: x,
-    'get_objects': lambda x: x,        # TODO: to be implemented as a neural primitive
-    'get_bg': lambda x: x,             # TODO: to be implemented as a neural primitive
+    'get_objects': get_objects,
+    'get_bg': get_bg,
     'color_set': colorSet,
     'equal': equal,
     'not_equal': not_equal,
