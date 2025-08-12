@@ -60,12 +60,13 @@ class GridObject:
 
 
     @staticmethod
-    def from_grid(cells):
+    def from_grid(cells, ul_x = 0, ul_y = 0):
         pixels = []
         for y, row in enumerate(cells):
             for x, color in enumerate(row):
-                pixels.append(Pixel(int(x), int(y), int(color)))
-        return GridObject(pixels)
+                pixels.append(Pixel(int(x) + ul_x, int(y) + ul_y, int(color)))
+
+        return GridObject(pixels, ul_x, ul_y)
 
     @property
     def cells(self):
@@ -762,8 +763,15 @@ def subtraction(a: Union[int, List[int], List[List[int]]],
     elif isinstance(a, List):
         output_subs = []
         for idx in range(len(a)):
-            result = a[idx] - b
-            output_subs.append(result)
+            if isinstance(a[0], List):
+                output_lists = []
+                for inner_idx in range(len(a[idx])):
+                    output_lists.append(a[idx][inner_idx] - b)
+
+                output_subs.append(output_lists)
+            else:
+                result = a[idx] - b
+                output_subs.append(result)
         return output_subs
     elif isinstance(b, List):
         if isinstance(b[0], List):
@@ -1386,30 +1394,42 @@ def set_pixels(target_grid: Union[GridObject, List[GridObject]],
             if isinstance(colors, int) or isinstance(colors, np.int64):
                 colors = np.ones(n) * colors
 
-            # Filter out negative coordinates
-            valid_indices = [i for i in range(n) if set_x[i] >= 0 and set_y[i] >= 0]
-            if not valid_indices:
-                return target_grid
+            # Handle negative indices for set_x and set_y
+            min_x = int(np.min(set_x)) if len(set_x) > 0 else 0
+            min_y = int(np.min(set_y)) if len(set_y) > 0 else 0
 
-            # Use only valid coordinates for max calculations
-            valid_x = [set_x[i] for i in valid_indices]
-            valid_y = [set_y[i] for i in valid_indices]
-            
-            max_x = max(target_grid.width, max(valid_x) + 1)
-            max_y = max(target_grid.height, max(valid_y) + 1)
+            shift_x = -min_x if min_x < 0 else 0
+            shift_y = -min_y if min_y < 0 else 0
+
+            # Adjust max_x and max_y to account for negative indices
+            max_x = max(target_grid.width + shift_x, int(np.max(set_x)) + 1 + shift_x)
+            max_y = max(target_grid.height + shift_y, int(np.max(set_y)) + 1 + shift_y)
             new_cells = np.zeros((max_y, max_x))
+
+            # Copy the original grid into the new grid at the shifted position
             for y in range(target_grid.height):
                 for x in range(target_grid.width):
-                    new_cells[y][x] = target_grid.cells[y][x]
+                    new_cells[y + shift_y][x + shift_x] = target_grid.cells[y][x]
 
-            for idx in valid_indices:
-                x_coord = int(set_x[idx])
-                y_coord = int(set_y[idx])
+            # Build indices: the set of x, y coords from set_x and set_y
+            if isinstance(set_x, (list, np.ndarray)) and isinstance(set_y, (list, np.ndarray)):
+                indices = list(range(n))
+            elif isinstance(set_x, (list, np.ndarray)):
+                indices = list(range(n))
+            elif isinstance(set_y, (list, np.ndarray)):
+                indices = list(range(n))
+            elif isinstance(colors, (list, np.ndarray)):
+                indices = list(range(n))
+            else:
+                indices = [0]
+
+            for idx in indices:
+                x_coord = int(set_x[idx]) + shift_x
+                y_coord = int(set_y[idx]) + shift_y
                 color = colors[idx]
-
                 new_cells[y_coord, x_coord] = color
 
-            return GridObject.from_grid(new_cells)
+            return GridObject.from_grid(new_cells, target_grid.ul_x - shift_x, target_grid.ul_y - shift_y)
         else:
             new_grid = copy.deepcopy(target_grid)
 
