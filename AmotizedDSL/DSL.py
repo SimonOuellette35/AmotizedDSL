@@ -1543,10 +1543,10 @@ def crop(g: Union[GridObject, List[GridObject]], x1, y1, x2, y2) -> GridObject:
         for pixel in g.pixels:
             if pixel.x >= x1 and pixel.x < x2:
                 if pixel.y >= y1 and pixel.y < y2:
-                    adjusted_pixel = Pixel(pixel.x - x1, pixel.y - y1, pixel.c)
+                    adjusted_pixel = Pixel(pixel.x + g.ul_x, pixel.y + g.ul_y, pixel.c)
                     new_pixels.append(adjusted_pixel)
 
-        return GridObject(new_pixels)
+        return GridObject(new_pixels, g.ul_x + x1, g.ul_y + y1)
 
     if isinstance(g, GridObject):
         return crop_grid(g, x1, y1, x2, y2)
