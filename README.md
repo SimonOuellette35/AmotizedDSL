@@ -115,6 +115,8 @@ _prog_utils.py_ is a utility file to convert programs between different represen
 
         [SOS, primitive, SOP, arg1(, attr), ARG_SEP, arg2(, attr), ARG_SEP, ..., EOS]
 
+    4 - LLM format: this format is used to interface with an LLM.
+
 ## Memory management
 
 Because in theory the program state keeps growing as the program grows, there is a special 'del' primitive that does garbage collection of specified program state components ("variables") that are no longer needed by the rest of the program.
