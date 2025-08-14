@@ -175,41 +175,61 @@ class ProgUtils:
 
     @staticmethod
     def convert_llm_instr_to_token_subseq(llm_instr, primitives):
-        txt_tokens = re.split(r'\s+', llm_instr.strip())
+        try:
+            txt_tokens = re.split(r'\s+', llm_instr.strip())
 
-        token_subseq = [ProgUtils.SOS_TOKEN]
-        token_id = 0
-        for tok_idx, tok in enumerate(txt_tokens):
-            if tok_idx == 0:
-                token_id = primitives.code_to_token_id(tok)
-                prim_id = token_id + ProgUtils.NUM_SPECIAL_TOKENS
-                token_subseq.append(prim_id)
-                token_subseq.append(ProgUtils.SOP_TOKEN)
-            else:
-                if 'id' in tok:
-                    # Handle id or id.attr
-                    if '.' in tok:
-                        # e.g., id3.w or id3.attr
-                        id_part, attr_part = tok.split('.', 1)
-                        attr_part = f".{attr_part}"
-
-                        obj_id = int(id_part.replace('id', ''))
-                        # Find the token id for the attribute
-                        attr_token = primitives.code_to_token_id(attr_part)
-                        token_subseq.append(obj_id + len(primitives.semantics) + ProgUtils.NUM_SPECIAL_TOKENS)
-                        token_subseq.append(attr_token + ProgUtils.NUM_SPECIAL_TOKENS)
-                    else:
-                        # Just idN
-                        obj_id = int(tok.replace('id', ''))
-                        token_subseq.append(obj_id + len(primitives.semantics) + ProgUtils.NUM_SPECIAL_TOKENS)
-                else:
-                    token_subseq.append(int(tok) + ProgUtils.NUM_SPECIAL_TOKENS)
+            token_subseq = [ProgUtils.SOS_TOKEN]
+            token_id = 0
+            for tok_idx, tok in enumerate(txt_tokens):
+                if tok is None:
+                    return None
                 
-                if tok_idx < len(txt_tokens) - 1:
-                    token_subseq.append(ProgUtils.ARG_SEP_TOKEN)
+                if tok_idx == 0:
+                    token_id = primitives.code_to_token_id(tok)
 
-        token_subseq.append(ProgUtils.EOS_TOKEN)
-        return token_subseq
+                    # Validate that the first token is a valid primitive
+                    if token_id <= 10 or tok.startswith('.'):
+                        return None
+                    
+                    prim_id = token_id + ProgUtils.NUM_SPECIAL_TOKENS
+                    token_subseq.append(prim_id)
+                    token_subseq.append(ProgUtils.SOP_TOKEN)
+                else:
+                    if 'id' in tok:
+                        # Handle id or id.attr
+                        if '.' in tok:
+                            # e.g., id3.w or id3.attr
+                            id_part, attr_part = tok.split('.', 1)
+                            attr_part = f".{attr_part}"
+
+                            obj_id = int(id_part.replace('id', ''))
+                            # Find the token id for the attribute
+                            attr_token = primitives.code_to_token_id(attr_part)
+                            token_subseq.append(obj_id + len(primitives.semantics) + ProgUtils.NUM_SPECIAL_TOKENS)
+                            token_subseq.append(attr_token + ProgUtils.NUM_SPECIAL_TOKENS)
+                        else:
+                            # Just idN
+                            obj_id = int(tok.replace('id', ''))
+                            token_subseq.append(obj_id + len(primitives.semantics) + ProgUtils.NUM_SPECIAL_TOKENS)
+                    else:
+                        # Validate integer token range
+                        int_tok = int(tok)
+                        if int_tok < 0 or int_tok > 9:
+                            return None
+                        token_subseq.append(int_tok + ProgUtils.NUM_SPECIAL_TOKENS)
+                    
+                    if tok_idx < len(txt_tokens) - 1:
+                        token_subseq.append(ProgUtils.ARG_SEP_TOKEN)
+
+            token_subseq.append(ProgUtils.EOS_TOKEN)
+            return token_subseq
+        except (ValueError, KeyError, AttributeError, IndexError):
+            # Return None if the LLM instruction doesn't correspond to a valid DSL instruction
+            # This can happen when:
+            # - code_to_token_id fails (KeyError/AttributeError)
+            # - int() conversion fails (ValueError) 
+            # - String parsing operations fail (ValueError/IndexError)
+            return None
 
     @staticmethod
     def convert_prog_to_token_seq(program, primitives):
