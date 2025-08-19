@@ -586,6 +586,7 @@ def less_than(a: Union[int, List[int], List[List[int]]], b: Union[int, List[int]
     else:
         raise TypeError("Unsupported input types for less_than")
 
+# Simply returns the length of the sequence.
 def count_items(data_list: Union[List[T], List[List[T]], List[List[List[T]]]]) -> Union[int, List[int], List[List[int]]]:
     if isinstance(data_list[0], List):
         if isinstance(data_list[0][0], List):
@@ -608,13 +609,14 @@ def count_items(data_list: Union[List[T], List[List[T]], List[List[List[T]]]]) -
     else:
         return len(data_list)
 
+# Given a set of values, it counts how many times each value occurs in the data_list. Basically a non-normalized histogram.
 def count_values(values: List[int], data_list: Union[List[int], GridObject]) -> List[int]:
 
     counts = [0] * len(values)
     if isinstance(data_list, GridObject):
         for v_idx, v in enumerate(values):
             for px in data_list.pixels:
-                if v == px[2]:
+                if v == px.c:
                     counts[v_idx] += 1
     else:
         for v_idx, v in enumerate(values):
