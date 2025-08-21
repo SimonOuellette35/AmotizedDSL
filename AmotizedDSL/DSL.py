@@ -80,7 +80,10 @@ class GridObject:
         Outputs the grid as a string for LLM prompts
         '''
         grid = self.to_grid()
-        grid_str = '['
+
+        grid_str = f'ul corner = ({self.ul_x, self.ul_y})\n'
+        grid_str += f'width = {self.width}, height = {self.height}\n'
+        grid_str += '['
         for row in grid:
             row_str = ''
             for cell in row:
@@ -89,15 +92,24 @@ class GridObject:
             grid_str += row_str
         grid_str += ']\n'
 
+        #print(grid_str)
         return grid_str
 
     def to_grid(self):
         # Create a 2D list filled with zeros (black)
-        grid = np.zeros((self.max_y+1, self.max_x+1))
+        grid = np.zeros((self.height, self.width))
 
+        min_x = 30
+        min_y = 30
+        for px in self.pixels:
+            if px.x < min_x:
+                min_x = px.x
+            if px.y < min_y:
+                min_y = px.y
+        
         # Fill in the colors from self.pixels
         for px in self.pixels:
-            grid[px.y, px.x] = int(px.c)
+            grid[px.y - min_y, px.x - min_x] = int(px.c)
 
         return grid
 
@@ -391,28 +403,21 @@ def get_bg(grid: GridObject, obj_mask: List[int]) -> GridObject:
     """
     # Get all (y, x) coordinates in obj_mask that correspond to the value 0 (background)
     bg_coords = np.argwhere(obj_mask == 0)
+    bg_grid = np.zeros_like(grid.cells)
+    
     pixels = []
     for y, x in bg_coords:
-        color = None
-        if isinstance(grid, GridObject):
-            # Find the pixel in grid.pixels with matching x, y
-            for px in grid.pixels:
-                if px.x == x and px.y == y:
-                    color = px.c
-                    break
-            if color is None:
-                color = int(grid.to_grid()[y, x])
-        else:
-            color = int(grid[y, x])
-        pixels.append(Pixel(int(x), int(y), int(color)))
-    if pixels:
-        ul_x = min(pixel.x for pixel in pixels)
-        ul_y = min(pixel.y for pixel in pixels)
-        bg_obj = GridObject(pixels, ul_x, ul_y)
-        return bg_obj
-    else:
-        # If no background pixels, return an empty GridObject
-        return GridObject([])
+        color = 0
+
+        # Find the pixel in grid.pixels with matching x, y
+        for px in grid.pixels:
+            if px.x == x and px.y == y:
+                color = px.c
+                break
+
+        bg_grid[x, y] = color
+        
+    return GridObject.from_grid(bg_grid)
 
 
 def get_width(g: Union[GridObject, List[GridObject]]) -> Union[DIM, List[DIM]]:
