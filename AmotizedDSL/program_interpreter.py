@@ -1,14 +1,7 @@
 from typing import List, Tuple
 from AmotizedDSL.prog_utils import ProgUtils
-from AmotizedDSL.DSL import Pixel
 import torch
-import numpy as np
-
-
-class DeleteAction:
-
-    def __init__(self, state_idx):
-        self.state_idx = state_idx
+from delete_action import DeleteAction
 
 
 def resolve_arg(arg, states, primitives, verbose=True):
@@ -114,6 +107,37 @@ def execute_step(step_token_seq, states, primitives, verbose=True):
 
     return result
 
+def is_neural_primitive(token_seq, primitives):
+    '''
+    Check if the first instruction in the program is a neural primitive (get_objects or get_bg).
+    
+    @param token_seq: a token sequence representing an instruction step
+    @param primitives: the DSL
+    
+    @return: (is_neural, prim_name) tuple
+    '''
+    token_tuple = ProgUtils.convert_token_seq_to_token_tuple(token_seq, primitives)
+    prim_idx = token_tuple[0]
+    prim_name = primitives.inverse_lookup(prim_idx)
+    
+    if prim_name in ['get_objects', 'get_bg']:
+        return True, prim_name
+    else:
+        return False, prim_name
+
+def kickstart_neural_primitive_program(state, primitives, obj_masks):
+    # Add the output to the state
+    for k_idx in range(len(state)):
+
+        state_id1 = primitives.get_objects(state[k_idx][0], obj_masks[k_idx])
+        state_id2 = primitives.get_bg(state[k_idx][0], obj_masks[k_idx])
+
+        state[k_idx].append(state_id1)
+        state[k_idx].append(state_id2)
+    
+    # Execute the rest of the program starting from step 2 (index 1)
+    return state
+
 def execute(token_seq_list, state, primitives):
     '''
     This function executes a whole program in token sequence format.
@@ -130,7 +154,6 @@ def execute(token_seq_list, state, primitives):
         if token_tuple[0] == -1:
             return state[-1]
 
-        #print("==> Executing: ", token_tuple)   
         output = execute_step(token_tuple, state, primitives)
         
         if isinstance(output[0], DeleteAction):
