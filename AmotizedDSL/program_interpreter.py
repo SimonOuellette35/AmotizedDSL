@@ -1,7 +1,7 @@
 from typing import List, Tuple
 from AmotizedDSL.prog_utils import ProgUtils
 import torch
-from delete_action import DeleteAction
+from AmotizedDSL.delete_action import DeleteAction
 
 
 def resolve_arg(arg, states, primitives, verbose=True):
