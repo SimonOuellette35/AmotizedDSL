@@ -80,12 +80,16 @@ class GridObject:
         Outputs the grid as a string for LLM prompts
         '''
         grid = self.to_grid()
-        grid_str = '['
-        for row in grid:
+
+        grid_str = f'Grid(ul=({self.ul_x},{self.ul_y}),w={self.width},h={self.height}\n['
+        for row_idx, row in enumerate(grid):
             row_str = ''
             for cell in row:
                 row_str += str(int(cell))
-            row_str += '\n'
+            
+            if row_idx < len(grid) - 1:
+                row_str += '\n'
+
             grid_str += row_str
         grid_str += ']\n'
 
