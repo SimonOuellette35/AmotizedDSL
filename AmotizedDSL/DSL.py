@@ -50,14 +50,23 @@ class GridObject:
             return adjusted
 
         self.pixels = adjust_pixels(pixels)
-        self.min_y = min(pixel.y for pixel in self.pixels)
-        self.max_y = max(pixel.y for pixel in self.pixels)
-        self.min_x = min(pixel.x for pixel in self.pixels)
-        self.max_x = max(pixel.x for pixel in self.pixels)
-        
-        self.height = self.max_y - self.min_y + 1
-        self.width = self.max_x - self.min_x + 1
+        if len(self.pixels)>0:
+            self.min_y = min(pixel.y for pixel in self.pixels)
+            self.max_y = max(pixel.y for pixel in self.pixels)
+            self.min_x = min(pixel.x for pixel in self.pixels)
+            self.max_x = max(pixel.x for pixel in self.pixels)
 
+            self.height = self.max_y - self.min_y + 1
+            self.width = self.max_x - self.min_x + 1
+        else:
+            self.min_y = 0
+            self.max_y = 0
+            self.min_x = 0
+            self.max_x = 0
+
+            self.height = 0
+            self.width = 0
+            
 
     @staticmethod
     def from_grid(cells, ul_x = 0, ul_y = 0):
@@ -417,6 +426,10 @@ def get_bg(grid: GridObject, obj_mask: List[int]) -> GridObject:
         bg_obj = GridObject(pixels, ul_x, ul_y)
         return bg_obj
     else:
+        print("grid = ", grid)
+        print("bg_coords = ", bg_coords)
+        print("obj_mask = ", obj_mask)
+        
         # If no background pixels, return an empty GridObject
         return GridObject([])
 
