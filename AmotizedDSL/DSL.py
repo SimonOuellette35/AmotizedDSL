@@ -394,21 +394,23 @@ def get_bg(grid: GridObject, obj_mask: List[int]) -> GridObject:
     Returns a single GridObject representing the background.
     """
     # Get all (y, x) coordinates in obj_mask that correspond to the value 0 (background)
-    bg_coords = np.argwhere(obj_mask == 0)
+    bg_coords = np.argwhere(np.array(obj_mask) == 0)
     pixels = []
+
     for y, x in bg_coords:
         color = None
-        if isinstance(grid, GridObject):
-            # Find the pixel in grid.pixels with matching x, y
-            for px in grid.pixels:
-                if px.x == x and px.y == y:
-                    color = px.c
-                    break
-            if color is None:
-                color = int(grid.to_grid()[y, x])
-        else:
-            color = int(grid[y, x])
+        
+        # Find the pixel in grid.pixels with matching x, y
+        for px in grid.pixels:
+            if px.x == x and px.y == y:
+                color = px.c
+                break
+                
+        if color is None:
+            color = int(grid.to_grid()[y, x])
+    
         pixels.append(Pixel(int(x), int(y), int(color)))
+    
     if pixels:
         ul_x = min(pixel.x for pixel in pixels)
         ul_y = min(pixel.y for pixel in pixels)
