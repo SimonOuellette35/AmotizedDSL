@@ -110,7 +110,8 @@ class GridObject:
 
         # Fill in the colors from self.pixels
         for px in self.pixels:
-            grid[px.y, px.x] = int(px.c)
+            if px.y >= 0 and px.x >= 0:
+                grid[px.y, px.x] = int(px.c)
 
         return grid
 
