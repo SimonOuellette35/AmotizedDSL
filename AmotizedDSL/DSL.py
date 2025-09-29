@@ -427,10 +427,6 @@ def get_bg(grid: GridObject, obj_mask: List[int]) -> GridObject:
         bg_obj = GridObject(pixels, ul_x, ul_y)
         return bg_obj
     else:
-        print("grid = ", grid)
-        print("bg_coords = ", bg_coords)
-        print("obj_mask = ", obj_mask)
-        
         # If no background pixels, return an empty GridObject
         return GridObject([])
 
