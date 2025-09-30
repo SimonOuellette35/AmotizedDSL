@@ -471,7 +471,7 @@ def unique(data: Union[List[int], List[List[int]], List[List[List[int]]]]) -> Un
         return list(dict.fromkeys(data))
     
 def get_x(p: Union[Pixel, List[Pixel], List[List[Pixel]]]) -> Union[COLOR, List[COLOR], List[List[COLOR]]]:
-    if isinstance(p, List) and (isinstance(p[0], List) or isinstance(p[0], np.ndarray)):
+    if isinstance(p, List) and len(p) > 0 and (isinstance(p[0], List) or isinstance(p[0], np.ndarray)):
         x_value_lists = []
         for px_list in p:
             x_values = []
@@ -498,7 +498,7 @@ def get_x(p: Union[Pixel, List[Pixel], List[List[Pixel]]]) -> Union[COLOR, List[
         return p.x
 
 def get_y(p: Union[Pixel, List[Pixel], List[List[Pixel]]]) -> Union[COLOR, List[COLOR], List[List[COLOR]]]:
-    if isinstance(p, List) and (isinstance(p[0], List) or isinstance(p[0], np.ndarray)):
+    if isinstance(p, List) and len(p) > 0 and (isinstance(p[0], List) or isinstance(p[0], np.ndarray)):
         y_value_lists = []
         for px_list in p:
             y_values = []
@@ -525,7 +525,7 @@ def get_y(p: Union[Pixel, List[Pixel], List[List[Pixel]]]) -> Union[COLOR, List[
         return p.y
 
 def get_color(p: Union[Pixel, List[Pixel], List[List[Pixel]]]) -> Union[COLOR, List[COLOR], List[List[COLOR]]]:
-    if isinstance(p, List) and isinstance(p[0], List):
+    if isinstance(p, List) and len(p) > 0 and isinstance(p[0], List):
         c_value_lists = []
         for px_list in p:
             c_values = []
@@ -544,7 +544,7 @@ def get_color(p: Union[Pixel, List[Pixel], List[List[Pixel]]]) -> Union[COLOR, L
         return p.c
 
 def get_index(list: List[T], i: int) -> Union[T, List[T]]:
-    if isinstance(list[0], List):
+    if len(list) > 0 and isinstance(list[0], List):
         output = []
         for sublist in list:
             if i < 0 or i >= len(sublist):
