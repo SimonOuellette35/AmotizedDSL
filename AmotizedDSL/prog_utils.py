@@ -171,7 +171,7 @@ class ProgUtils:
             else:
                 arg_tokens.append(arg)
 
-        return llm_txt + '\n'
+        return llm_txt
 
     @staticmethod
     def convert_llm_instr_to_token_subseq(llm_instr, primitives):
