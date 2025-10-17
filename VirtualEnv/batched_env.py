@@ -38,7 +38,8 @@ class BatchedAmotizedDSLEnv:
             #batch_comments.append(target_comments[batch_idx][0])
 
             current_comments.append(batch_comments)
-        
+
+            batch_target_DSL = []
             for k in range(self.k):
 
                 detok_outp_grid = tok.detokenize_grid_unpadded(self.output_batch[batch_idx][k])
@@ -53,8 +54,9 @@ class BatchedAmotizedDSLEnv:
                 # Add it as a list of grids, because the state is always a list of variables, even if there
                 # is only one because it's the initial state.
                 tmp_states.append([tmp_input_grid])
-                self.input_batch_DSL.append(copy.deepcopy(tmp_states))
+                batch_target_DSL.append(copy.deepcopy(tmp_input_grid))
 
+            self.input_batch_DSL.append(batch_target_DSL)
             targets.append(tmp_targets)
             batch_init_state.append(tmp_states)
 
@@ -84,7 +86,7 @@ class BatchedAmotizedDSLEnv:
 
         # Execute the instruction sequence to get the next state
         tmp_batch_output = []
-        for batch_idx in range(len(self.current_prog_state)):
+        for batch_idx in range(len(self.batched_prog_state)):
             batch_k_output = []
             neural_flag, prim_name = self.is_neural_primitive(batch_action_sequences[batch_idx])
             if neural_flag:

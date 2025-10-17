@@ -356,7 +356,7 @@ def new_grid(w: int, h: int, bg_color) -> GridObject:
     cells = np.ones((h, w)) * bg_color
     return GridObject.from_grid(cells)
 
-def get_objects(grid: GridObject, obj_mask: List[int]) -> List[GridObject]:
+def get_objects(grid: GridObject, obj_mask: List[List[int]]) -> List[GridObject]:
     """
     Extracts all distinct objects from the grid using the object mask.
     Each unique non-zero value in obj_mask corresponds to a separate object.
