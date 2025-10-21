@@ -129,6 +129,30 @@ class ProgUtils:
         return label_seq
 
     @staticmethod
+    def split_instr_comment(total_sequence):
+        '''
+        Split a sequence into instructions and comments parts.
+        
+        @param total_sequence: string in one of three formats:
+            1. "instructions" - no separator, comments will be empty string
+            2. "instructions//comments" - separator with comments
+            3. "instructions//" - separator with empty comments
+            
+        @return: tuple of (instructions, comments) where comments can be empty string
+        '''
+        if '//' not in total_sequence:
+            # Format 1: "instructions" - no separator
+            return total_sequence, ""
+        
+        # Split on the first occurrence of '//'
+        parts = total_sequence.split('//', 1)
+        instructions = parts[0]
+        comments = parts[1] if len(parts) > 1 else ""
+        
+        return instructions, comments
+
+
+    @staticmethod
     def convert_token_sub_seq_to_llm(step_token_seq, primitives):
         '''
         This function converts an instruction step in a program in token sequence format into an intermediate representation.

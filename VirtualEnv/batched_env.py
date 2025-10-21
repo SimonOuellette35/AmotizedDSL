@@ -80,12 +80,76 @@ class BatchedAmotizedDSLEnv:
         else:
             return False, prim_name
 
-    def act(self, batch_action_sequences, batch_comments):
+    def get_cached_sequence(self, node_sequence):
+        # NOTE: the confusing this about this is that node 0's state is the input grid, and its
+        # instruction seq is the first instruction to be executed given the input grid. Node 1's
+        # state is the output of applying instruction 0, while it's instruction is the second
+        # instruction to be executed, etc.
+        DSL_size = len(DSL.semantics) + ProgUtils.NUM_SPECIAL_TOKENS
+        del_token_id = DSL.prim_indices['del'] + ProgUtils.NUM_SPECIAL_TOKENS
+
+        # Process each node in sequence, checking for delete operations
+        i = 0
+        while i < len(node_sequence):
+            current_node = node_sequence[i]
+
+            if current_node.parent_node is not None:
+                instr_seq = current_node.parent_node.instruction_seqs[current_node.instruction_idx]
+                
+                # Check if it's a delete operation (starts with [0, 25])
+                if instr_seq[0] == 0 and instr_seq[1] == del_token_id:
+                    # Get the state index to delete from the next token in the sequence
+                    state_idx_to_del = instr_seq[3]
+                    state_idx_to_del -= DSL_size
+                    print(f"==> DELETING @ state_idx_to_del = {state_idx_to_del} -- current idx {i}, current node_sequence len = {len(node_sequence)}")
+                    
+                    # Remove the item at that index from node_sequence
+                    if state_idx_to_del < i and state_idx_to_del >= 0:
+                        # Also delete the current, actual delete node
+                        del node_sequence[i]
+                        del node_sequence[state_idx_to_del]
+        
+                        i -= 1
+                        continue
+            
+            # Move to the next node
+            i += 1
+
+        return node_sequence
+
+
+    def act_inference(self, instr_step, full_intermediate_state):
+        intermediate_state, comment = full_intermediate_state
+        instr_seq, comment_seq = ProgUtils.split_instr_comment(instr_step)
+
+        tmp_output = []
+        if instr_step[0] == ProgUtils.EOS_TOKEN:
+            for _ in range(len(intermediate_state)):
+                tmp_output.append(None)
+        else:
+            tmp_output = pi.execute_instruction_step(instr_seq, intermediate_state, DSL)
+            
+        return (tmp_output, comment_seq)
+
+
+    def is_goal(self, state, target):
+        for k_idx in range(len(state)):
+            if isinstance(state[k_idx], DSL.Grid):
+                if np.any(state[k_idx].cells != target[k_idx].cells):
+                    return False
+            else:
+                return False
+
+        return True
+
+
+    def act_training(self, batch_action_sequences, batch_comments):
 
         # Execute the instruction sequence to get the next state
         tmp_batch_output = []
         for batch_idx in range(len(self.current_prog_state)):
             batch_k_output = []
+
             neural_flag, prim_name = self.is_neural_primitive(batch_action_sequences[batch_idx])
             if neural_flag:
                 # special case: for get_objects and get_bg, must use the object mask ground truths instead.
@@ -103,13 +167,7 @@ class BatchedAmotizedDSLEnv:
             else:
                 instr_step = batch_action_sequences[batch_idx]
                 intermediate_state = self.batched_prog_state[batch_idx]
-                tmp_output = []
-                if instr_step[0] == ProgUtils.EOS_TOKEN:
-                    for k in range(len(intermediate_state)):
-                        tmp_output.append(None)
-                else:
-                    tmp_output = pi.execute_instruction_step(instr_step, intermediate_state, DSL)
-                    
+                tmp_output = self.act_inference(instr_step, intermediate_state)
                 tmp_batch_output.append(tmp_output)
 
         for batch_idx in range(len(tmp_batch_output)):
@@ -145,3 +203,6 @@ class BatchedAmotizedDSLEnv:
         # TODO: calculate reward. Currently unused, though.
         reward_batch = np.zeros([self.batch_size])
         return self.batched_prog_state, self.batched_comments #reward_batch
+
+    def get_obs(self):
+        return (self.batched_prog_state, self.batched_comments)
