@@ -1,5 +1,6 @@
 from typing import List, Tuple
 import re
+import AmotizedDSL.DSL as DSL
 
 
 class ProgUtils:
@@ -31,6 +32,114 @@ class ProgUtils:
     EOS_TOKEN = 3           # End of sentence
 
     NUM_SPECIAL_TOKENS = 4
+
+    @staticmethod
+    def extract_arguments(instr):
+        # TODO: parse the instruction sequence and get the argument list for input to extract_data_types
+        
+
+    @staticmethod
+    def extract_data_types(arguments, intermediate_state):
+        f'''
+        The list of arguments is actually a list of lists, because it's possible to have an argument "pair" (Object reference + attribute).
+
+        Goes through the arguments, resolves references to variables in intermediate_state, and returns the
+        argument type for each argument. There are 5 possible argument types (it gets simplified from GridObject or List[List[Pixels]], etc.
+        because of the implicit type overloading in most primitives):
+            - List[GridObject]
+            - List[Pixel]
+            - List[int]
+            - List[bool]
+            - int (constant)
+        '''
+        arg_types = []
+
+        for arg in arguments:
+            arg_val = arg[0] - ProgUtils.NUM_SPECIAL_TOKENS
+            if arg_val < 10:
+                # Constant
+                # Add int type to arg_types
+                arg_types.append(int)
+            else:
+                if len(arg) > 1:
+                    # Attribute reference, this is always a List[int]
+                    arg_types.append(List[int])
+                else:
+                    # direct object reference, just find the type of the referred variable
+                    ref_idx = arg_val - len(DSL.semantics)
+                    obj = intermediate_state[ref_idx]
+
+                    # parse and simplify the possible types
+                    type_str = str(type(obj))
+                    if 'GridObject' in type_str:
+                        arg_types.append(List[DSL.GridObject])
+                    elif 'int' in type_str:
+                        arg_types.append(List[int])
+                    elif 'bool' in type_str:
+                        arg_types.append(List[bool])
+                    elif 'Pixel'in type_str:
+                        arg_types.append(List[DSL.Pixel])
+                    else:
+                        print(f"==> Error: unknown data type: {type_str}")
+
+        return arg_types
+
+
+    @staticmethod
+    def check_state_variable_types(arg_types, primitive_idx):
+        '''
+        arg_types are the types of the actual arguments passed to the function. They can be:
+        - List[GridObject]
+        - List[Pixels]
+        - List[Int]
+        - List[bool]
+        - constant
+
+        and the primitive_idx is the index into the DSL for the primitive function being called.
+        
+        Returns True is the argument types are all valid, False if there is a mismatch.
+        '''
+        
+        primitive_idx -= ProgUtils.NUM_SPECIAL_TOKENS
+
+        nargs = DSL.arg_counts[primitive_idx]
+        if len(arg_types) != nargs:
+            print(f"ERROR: {len(arg_types)} arguments given, but the primitive has {nargs} arguments!")
+            return False
+
+        prim_name = DSL.inverse_lookup(primitive_idx)
+        prim_func = DSL.semantics[prim_name]
+        for arg_idx, arg_type in enumerate(arg_types):
+            print(f"========================================== Validating argument {arg_idx} ==========================================")
+            # Attempt to extract type annotation of the argument for prim_func
+            try:
+                annotations = prim_func.__annotations__
+                # To get the argument name for this index, use inspect:
+                import inspect
+                param_names = list(inspect.signature(prim_func).parameters.keys())
+                arg_name = param_names[arg_idx]
+                arg_type_hint = annotations[arg_name]
+                print(f"Function {prim_name} argument {arg_idx} has type hint: {arg_type_hint}")
+                
+                print("arg_type = ", arg_type)
+                if 'DSL.GridObject' in f'{arg_type_hint}':
+                    if 'DSL.GridObject' in f'{arg_type}':
+                        print("OK, type matches.")
+                    else:
+                        print("ERROR: type mismatch!")
+                        return False
+                elif '~COLOR' or '~DIM' in f'{arg_type_hint}':
+                    if 'int' in f'{arg_type}':
+                        print("OK, type matches.")
+                    else:
+                        print("ERROR: type mismatch!")
+                        return False
+
+            except AttributeError:
+                # if lambda, any argument type is valid
+                pass
+
+        return True
 
     @staticmethod
     def validate_instr_step(instr_step):

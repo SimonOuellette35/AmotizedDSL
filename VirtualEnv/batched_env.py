@@ -120,7 +120,7 @@ class BatchedAmotizedDSLEnv:
         return node_sequence
 
 
-    def act_inference(self, instr_step, full_intermediate_state):
+    def act_inference_comment(self, instr_step, full_intermediate_state):
         intermediate_state, comment = full_intermediate_state
         instr_seq, comment_seq = ProgUtils.split_instr_comment(instr_step)
 
@@ -134,9 +134,21 @@ class BatchedAmotizedDSLEnv:
         return (tmp_output, comment_seq)
 
 
+    def act_inference(self, instr_step, intermediate_state):
+        tmp_output = []
+        if instr_step[0] == ProgUtils.EOS_TOKEN:
+            for _ in range(len(intermediate_state)):
+                tmp_output.append(None)
+        else:
+            tmp_output = pi.execute_instruction_step(instr_step, intermediate_state, DSL)
+            
+        return tmp_output
+
+
+
     def is_goal(self, state, target):
         for k_idx in range(len(state)):
-            if isinstance(state[k_idx], DSL.Grid):
+            if isinstance(state[k_idx], DSL.GridObject):
                 if np.any(state[k_idx].cells != target[k_idx].cells):
                     return False
             else:
