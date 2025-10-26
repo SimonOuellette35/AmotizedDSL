@@ -34,6 +34,30 @@ class ProgUtils:
     NUM_SPECIAL_TOKENS = 4
 
     @staticmethod
+    def validate_instruction(instr, intermediate_state):
+        num_vars = len(intermediate_state)
+
+        # If num_vars == 1, remove all instructions 51 (those starting with [0, 51, 1]) from valid_instructions
+        # This is the delete instruction
+        if num_vars == 1:
+            if len(instr) >= 3 and instr[0] == 0 and instr[1] == 51 and instr[2] == 1:
+                return False
+
+        # Make it impossible for reference IDs to refer to values > num_vars, so eliminate some possibilities here as well
+        # Remove from valid_instructions all instruction sequences that contain 61+num_vars or higher
+        threshold_val = 61 + num_vars
+        if any(isinstance(token, int) and token >= threshold_val for token in instr):
+            return False
+
+        # Check if the instruction sequence has compatible argument types
+        arguments = ProgUtils.parse_arguments(instr)
+        arg_types = ProgUtils.extract_data_types(arguments, intermediate_state)
+        is_valid, error_msg = ProgUtils.check_state_variable_types(arg_types, instr[1])
+
+        return is_valid, error_msg
+
+
+    @staticmethod
     def parse_arguments(instr: List[int]) -> List[List[int]]:
         """
         Parse arguments from a program instruction sequence.
