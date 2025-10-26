@@ -1,6 +1,7 @@
 from typing import List, Tuple
 import re
 import AmotizedDSL.DSL as DSL
+import inspect
 
 
 class ProgUtils:
@@ -153,15 +154,50 @@ class ProgUtils:
 
 
     @staticmethod
+    def get_prim_func_arg_types(primitive_idx):
+        primitive_idx -= ProgUtils.NUM_SPECIAL_TOKENS
+
+        prim_name = DSL.inverse_lookup(primitive_idx)
+        prim_func = DSL.semantics[prim_name]
+
+        annotations = prim_func.__annotations__
+        if len(annotations) == 0:
+            # it's a lambda expression, in which case we return True automatically
+            return ['GridObject']
+        
+        param_names = list(inspect.signature(prim_func).parameters.keys())
+
+        nargs = DSL.arg_counts[primitive_idx]
+        arg_types = []
+        for arg_idx in range(nargs):
+            arg_name = param_names[arg_idx]
+
+            arg_type_hint = f'{annotations[arg_name]}'
+
+            # simplify into the 4 main types: GridObject, Pixel, Int, Bool
+            if 'GridObject' in arg_type_hint:
+                arg_types.append('GridObject')
+            elif 'int' in arg_type_hint or 'COLOR' in arg_type_hint or 'DIM' in arg_type_hint:
+                arg_types.append('int')
+            elif 'bool' in arg_type_hint:
+                arg_types.append('bool')
+            elif 'Pixel' in arg_type_hint:
+                arg_types.append('Pixel')
+            else:
+                print(f"==> ERROR: unknown argument type {arg_type_hint}")
+                arg_types.append(None)
+
+        return arg_types
+
+    @staticmethod
     def check_state_variable_types(arg_types, primitive_idx):
         '''
         arg_types are the types of the actual arguments passed to the function. They can be:
         - List[GridObject]
-        - List[Pixels]
-        - List[Int]
+        - List[Pixel]
+        - List[Int] or constant (which is also int)
         - List[bool]
-        - constant
-
+        
         and the primitive_idx is the index into the DSL for the primitive function being called.
         
         Returns True is the argument types are all valid, False if there is a mismatch.
@@ -176,35 +212,35 @@ class ProgUtils:
 
         prim_name = DSL.inverse_lookup(primitive_idx)
         prim_func = DSL.semantics[prim_name]
+        
+        annotations = prim_func.__annotations__
+        if len(annotations) == 0:
+            # it's a lambda expression, in which case we return True automatically
+            return True
+        
+        param_names = list(inspect.signature(prim_func).parameters.keys())
+
         for arg_idx, arg_type in enumerate(arg_types):
             print(f"========================================== Validating argument {arg_idx} ==========================================")
             # Attempt to extract type annotation of the argument for prim_func
-            try:
-                annotations = prim_func.__annotations__
-                # To get the argument name for this index, use inspect:
-                import inspect
-                param_names = list(inspect.signature(prim_func).parameters.keys())
-                arg_name = param_names[arg_idx]
-                arg_type_hint = annotations[arg_name]
-                print(f"Function {prim_name} argument {arg_idx} has type hint: {arg_type_hint}")
-                
-                print("arg_type = ", arg_type)
-                if 'DSL.GridObject' in f'{arg_type_hint}':
-                    if 'DSL.GridObject' in f'{arg_type}':
-                        print("OK, type matches.")
-                    else:
-                        print("ERROR: type mismatch!")
-                        return False
-                elif '~COLOR' or '~DIM' in f'{arg_type_hint}':
-                    if 'int' in f'{arg_type}':
-                        print("OK, type matches.")
-                    else:
-                        print("ERROR: type mismatch!")
-                        return False
+            arg_name = param_names[arg_idx]
 
-            except AttributeError:
-                # if lambda, any argument type is valid
-                pass
+            arg_type_hint = annotations[arg_name]
+            print(f"Function {prim_name} argument {arg_idx} has type hint: {arg_type_hint}")
+            
+            print("arg_type = ", arg_type)
+            if 'DSL.GridObject' in f'{arg_type_hint}':
+                if 'DSL.GridObject' in f'{arg_type}':
+                    print("OK, type matches.")
+                else:
+                    print("ERROR: type mismatch!")
+                    return False
+            elif '~COLOR' or '~DIM' in f'{arg_type_hint}':
+                if 'int' in f'{arg_type}':
+                    print("OK, type matches.")
+                else:
+                    print("ERROR: type mismatch!")
+                    return False
 
         return True
 

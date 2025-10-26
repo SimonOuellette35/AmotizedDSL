@@ -343,7 +343,7 @@ text_to_code = {
 }
 # ======================================================================== Implementation of DSL ========================================================================
 
-def new_grid(w: int, h: int, bg_color) -> GridObject:
+def new_grid(w: int, h: int, bg_color: int) -> GridObject:
     if isinstance(bg_color, List):
         bg_color = bg_color[0]
 
@@ -642,7 +642,7 @@ def count_values(values: List[int], data_list: Union[List[int], GridObject]) -> 
 
     return counts
 
-def sin_half_pi(val) -> Union[int, List[int], List[List[int]]]:
+def sin_half_pi(val: Union[int, List[int]]) -> Union[int, List[int], List[List[int]]]:
     # sin(pi/2 * val)
     if isinstance(val, List):
         if isinstance(val[0], List):
@@ -664,7 +664,7 @@ def sin_half_pi(val) -> Union[int, List[int], List[List[int]]]:
     else:
         return int(math.sin((np.pi / 2.) * val))
 
-def cos_half_pi(val) -> Union[int, List[int]]:
+def cos_half_pi(val: Union[int, List[int]]) -> Union[int, List[int]]:
     # cos(pi/2 * val)
     if isinstance(val, List):
         if isinstance(val[0], List):
@@ -1133,7 +1133,7 @@ def switch(conditions, operations, otherwise):
         # Here the condition is just a constant.
         return switch_single_constant(conditions, operations, otherwise)
 
-def colorOf(g: GridObject, x, y) -> COLOR:
+def colorOf(g: GridObject, x: Union[int, List[int]], y: Union[int, List[int]]) -> COLOR:
     def single_grid_colorOf(g, x, y):   
         if isinstance(x, list) and isinstance(y, list):
             color_list = []
@@ -1555,7 +1555,7 @@ def set_color(grid: Union[GridObject, List[GridObject]], c_values: Union[int, Li
 
         return grid_list
 
-def crop(g: Union[GridObject, List[GridObject]], x1, y1, x2, y2) -> GridObject:
+def crop(g: Union[GridObject, List[GridObject]], x1: List[int], y1: List[int], x2: List[int], y2: List[int]) -> GridObject:
     def crop_grid(g, x1, y1, x2, y2):
         new_pixels = []
         for pixel in g.pixels:
