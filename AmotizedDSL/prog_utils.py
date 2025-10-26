@@ -34,9 +34,40 @@ class ProgUtils:
     NUM_SPECIAL_TOKENS = 4
 
     @staticmethod
-    def extract_arguments(instr):
-        # TODO: parse the instruction sequence and get the argument list for input to extract_data_types
-        
+    def parse_arguments(instr: List[int]) -> List[List[int]]:
+        """
+        Parse arguments from a program instruction sequence.
+        - 1 marks the start of arguments list
+        - 2 separates arguments
+        - 3 marks end of sequence (or padding)
+        Returns a list of argument token lists.
+        """
+        try:
+            start_idx = instr.index(1)
+        except ValueError:
+            return []
+
+        args: List[List[int]] = []
+        current: List[int] = []
+        i = start_idx + 1
+        while i < len(instr):
+            token = instr[i]
+            if token == 3:
+                if current:
+                    args.append(current)
+                break
+            if token == 2:
+                args.append(current)
+                current = []
+            elif token == 1:
+                # Unexpected nested start marker; end current parsing
+                if current:
+                    args.append(current)
+                break
+            else:
+                current.append(token)
+            i += 1
+        return args
 
     @staticmethod
     def extract_data_types(arguments, intermediate_state):
@@ -79,6 +110,18 @@ class ProgUtils:
                         arg_types.append(List[bool])
                     elif 'Pixel'in type_str:
                         arg_types.append(List[DSL.Pixel])
+                    elif 'list' in type_str:
+                        elem_type = str(type(obj[0]))
+                        if 'int' in elem_type:
+                            arg_types.append(List[int])
+                        elif 'bool' in elem_type:
+                            arg_types.append(List[bool])
+                        elif 'Pixel' in elem_type:
+                            arg_types.append(List[DSL.Pixel])
+                        elif 'GridObject' in elem_type:
+                            arg_types.append(List[DSL.GridObject])
+                        else:
+                            print(f"==> Error: unknown list element type: {elem_type}")
                     else:
                         print(f"==> Error: unknown data type: {type_str}")
 
