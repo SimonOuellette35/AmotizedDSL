@@ -154,11 +154,18 @@ class ProgUtils:
 
 
     @staticmethod
-    def get_prim_func_arg_types(primitive_idx):
+    def get_prim_func_arg_types(primitive_idx, nargs):
         primitive_idx -= ProgUtils.NUM_SPECIAL_TOKENS
 
         prim_name = DSL.inverse_lookup(primitive_idx)
         prim_func = DSL.semantics[prim_name]
+
+        if prim_name == 'switch':
+            arg_types = ['int'] * nargs
+            conditions_len = int((nargs - 1) // 2)
+            arg_types[:conditions_len] = ['bool'] * conditions_len
+
+            return arg_types
 
         annotations = prim_func.__annotations__
         if len(annotations) == 0:
@@ -184,10 +191,37 @@ class ProgUtils:
             elif 'Pixel' in arg_type_hint:
                 arg_types.append('Pixel')
             else:
-                print(f"==> ERROR: unknown argument type {arg_type_hint}")
-                arg_types.append(None)
+                arg_types.append('T')
 
         return arg_types
+
+    @staticmethod
+    def validate_switch_statement(arg_types):
+        n = len(arg_types)
+        group_n = int((n - 1) / 2)
+
+        print("group_n = ", group_n)
+
+        conditions = arg_types[:group_n]
+        operations = arg_types[group_n: group_n*2]
+        otherwise = arg_types[-1]
+
+        # Check conditions: all need to be 'bool'
+        for cond_type in conditions:
+            if 'bool' not in str(cond_type):
+                return False
+
+        # Check operations: all need to be 'int'
+        for op_type in operations:
+            if 'int' not in str(op_type):
+                return False
+
+        # Check otherwise: needs to be 'int'
+        if 'int' not in str(otherwise):
+            return False
+
+        return True
+
 
     @staticmethod
     def check_state_variable_types(arg_types, primitive_idx):
@@ -205,14 +239,17 @@ class ProgUtils:
         
         primitive_idx -= ProgUtils.NUM_SPECIAL_TOKENS
 
+        prim_name = DSL.inverse_lookup(primitive_idx)
+        prim_func = DSL.semantics[prim_name]
+
+        if prim_name == 'switch':
+            return ProgUtils.validate_switch_statement(arg_types)
+
         nargs = DSL.arg_counts[primitive_idx]
         if len(arg_types) != nargs:
             print(f"ERROR: {len(arg_types)} arguments given, but the primitive has {nargs} arguments!")
             return False
 
-        prim_name = DSL.inverse_lookup(primitive_idx)
-        prim_func = DSL.semantics[prim_name]
-        
         annotations = prim_func.__annotations__
         if len(annotations) == 0:
             # it's a lambda expression, in which case we return True automatically
@@ -235,8 +272,21 @@ class ProgUtils:
                 else:
                     print("ERROR: type mismatch!")
                     return False
-            elif '~COLOR' or '~DIM' in f'{arg_type_hint}':
+            elif '~COLOR' in f'{arg_type_hint}' or 'int' in f'{arg_type_hint}' or '~DIM' in f'{arg_type_hint}':
                 if 'int' in f'{arg_type}':
+                    print("OK, type matches.")
+                else:
+                    print("ERROR: type mismatch!")
+                    return False
+            elif 'bool' in f'{arg_type_hint}':
+                if 'bool' in f'{arg_type}':
+                    print("OK, type matches.")
+                else:
+                    print("ERROR: type mismatch!")
+                    return False
+
+            elif 'Pixel' in f'{arg_type_hint}':
+                if 'Pixel' in f'{arg_type}':
                     print("OK, type matches.")
                 else:
                     print("ERROR: type mismatch!")
