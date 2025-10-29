@@ -36,7 +36,15 @@ class ProgUtils:
 
     @staticmethod
     def validate_instruction(instr, intermediate_state):
-        num_vars = len(intermediate_state)
+        '''
+        This validates instruction 'instr' based on the current program state contained in 'intermediate_state'.
+
+        Intermediate state is expected to be of shape [k, number of variables]
+
+        We assume that all instances of the k demonstration sets have the same number of variables, since it's the
+        same program applied to all k instances (and thus the same program depth == same variable stack size).
+        '''
+        num_vars = len(intermediate_state[0])
 
         # If num_vars == 1, remove all instructions 51 (those starting with [0, 51, 1]) from valid_instructions
         # This is the delete instruction
@@ -54,7 +62,7 @@ class ProgUtils:
         arguments = ProgUtils.parse_arguments(instr)
 
         # Special case: new_grid cannot have 0 as its first or second argument
-        primitive_idx -= ProgUtils.NUM_SPECIAL_TOKENS
+        primitive_idx = instr[1] - ProgUtils.NUM_SPECIAL_TOKENS
         prim_name = DSL.inverse_lookup(primitive_idx)
 
         if prim_name == 'new_grid':
@@ -76,7 +84,7 @@ class ProgUtils:
         for arg in arguments:
             if len(arg) > 1:
                 obj_id = arg[0]
-                ref_idx = obj_id - len(DSL.semantics)
+                ref_idx = obj_id - len(DSL.semantics) - ProgUtils.NUM_SPECIAL_TOKENS
                 ref_obj = intermediate_state[ref_idx]
                 type_str = str(type(ref_obj))
                 if 'GridObject' not in type_str:
@@ -235,8 +243,6 @@ class ProgUtils:
         n = len(arg_types)
         group_n = int((n - 1) / 2)
 
-        print("group_n = ", group_n)
-
         conditions = arg_types[:group_n]
         operations = arg_types[group_n: group_n*2]
         otherwise = arg_types[-1]
@@ -244,18 +250,18 @@ class ProgUtils:
         # Check conditions: all need to be 'bool'
         for cond_type in conditions:
             if 'bool' not in str(cond_type):
-                return False
+                return False, "switch statement needs bool in conditions arguments."
 
         # Check operations: all need to be 'int'
         for op_type in operations:
             if 'int' not in str(op_type):
-                return False
+                return False, "switch statement needs int in operations arguments."
 
         # Check otherwise: needs to be 'int'
         if 'int' not in str(otherwise):
-            return False
+            return False, "switch statement needs int in otherwise argument."
 
-        return True
+        return True, "switch statement valid"
 
 
     @staticmethod
@@ -282,144 +288,37 @@ class ProgUtils:
 
         nargs = DSL.arg_counts[primitive_idx]
         if len(arg_types) != nargs:
-            print(f"ERROR: {len(arg_types)} arguments given, but the primitive has {nargs} arguments!")
-            return False
+            return False, f"ERROR: {len(arg_types)} arguments given, but the primitive has {nargs} arguments!"
 
         annotations = prim_func.__annotations__
         if len(annotations) == 0:
             # it's a lambda expression, in which case we return True automatically
-            return True
+            return True, "lambd expression, automatically valid."
         
         param_names = list(inspect.signature(prim_func).parameters.keys())
 
         for arg_idx, arg_type in enumerate(arg_types):
-            print(f"========================================== Validating argument {arg_idx} ==========================================")
             # Attempt to extract type annotation of the argument for prim_func
             arg_name = param_names[arg_idx]
-
-            arg_type_hint = annotations[arg_name]
-            print(f"Function {prim_name} argument {arg_idx} has type hint: {arg_type_hint}")
-            
+            arg_type_hint = annotations[arg_name]           
             arg_val = arguments[arg_idx]
-            print("arg_type = ", arg_type)
             if 'DSL.GridObject' in f'{arg_type_hint}':
-                if 'DSL.GridObject' in f'{arg_type}':
-                    print("OK, type matches.")
-                else:
-                    print(f"ERROR: type mismatch on argument {arg_idx} (arg type: {arg_type}, arg val: {arg_val})")
-                    return False
+                if 'DSL.GridObject' not in f'{arg_type}':
+                    return False, f"ERROR: type mismatch on argument {arg_idx} (arg type: {arg_type}, arg val: {arg_val})"
+
             elif '~COLOR' in f'{arg_type_hint}' or 'int' in f'{arg_type_hint}' or '~DIM' in f'{arg_type_hint}':
-                if 'int' in f'{arg_type}':
-                    print("OK, type matches.")
-                else:
-                    print(f"ERROR: type mismatch on argument {arg_idx} (arg type: {arg_type}, arg val: {arg_val})")
-                    return False
+                if 'int' not in f'{arg_type}':
+                    return False, f"ERROR: type mismatch on argument {arg_idx} (arg type: {arg_type}, arg val: {arg_val})"
+
             elif 'bool' in f'{arg_type_hint}':
-                if 'bool' in f'{arg_type}':
-                    print("OK, type matches.")
-                else:
-                    print(f"ERROR: type mismatch on argument {arg_idx} (arg type: {arg_type}, arg val: {arg_val})")
-                    return False
+                if 'bool' not in f'{arg_type}':
+                    return False, f"ERROR: type mismatch on argument {arg_idx} (arg type: {arg_type}, arg val: {arg_val})"
 
             elif 'Pixel' in f'{arg_type_hint}':
-                if 'Pixel' in f'{arg_type}':
-                    print("OK, type matches.")
-                else:
-                    print(f"ERROR: type mismatch on argument {arg_idx} (arg type: {arg_type}, arg val: {arg_val})")
-                    return False
+                if 'Pixel' not in f'{arg_type}':
+                    return False, f"ERROR: type mismatch on argument {arg_idx} (arg type: {arg_type}, arg val: {arg_val})"
 
-        return True
-
-    @staticmethod
-    def filter_invalid(instr, instr_list, error_msg):
-        if "cannot have a del instruction when there is only 1 state variable" in error_msg:
-            # Remove from instr_list all lists whose second element is 51.
-            prim_idx = DSL.prim_indices["del"] + ProgUtils.NUM_SPECIAL_TOKENS
-            instr_list = [item for item in instr_list if not item[1] == prim_idx]
-            return instr_list
-        elif "impossible for reference IDs to refer to ids > " in error_msg:
-            # delete all occurences of N + num_vars or higher
-            # Remove from instr_list all lists whose sequence contains any integer >= max_id
-            match = re.search(r'ids > (\d+)', error_msg)
-            if match:
-                num_args = int(match.group(1))
-            else:
-                num_args = 8    # arbitrary, but should not happen anyway
-
-            max_id = len(DSL.semantics) + ProgUtils.NUM_SPECIAL_TOKENS + num_args
-            instr_list = [item for item in instr_list if all((isinstance(token, int) and token < max_id) or not isinstance(token, int) for token in item)]
-            return instr_list
-        elif "new_grid cannot have 0 as its first or second argument." in error_msg:
-            # delete all occurrences of 0 in first or second argument of new_grid
-            prim_idx = DSL.prim_indices["new_grid"] + ProgUtils.NUM_SPECIAL_TOKENS
-            instr_list = [
-                item for item in instr_list 
-                if not (
-                    item[1] == prim_idx and 
-                    (
-                        ProgUtils.parse_arguments(item)[0][0] == 4 or
-                        ProgUtils.parse_arguments(item)[1][0] == 4
-                    )
-                )
-            ]
-            return instr_list
-        elif "ERROR: type mismatch on argument" in error_msg:
-            match = re.search(r'argument\s+(\d+)', error_msg)
-            if match:
-                arg_idx = int(match.group(1))
-            else:
-                arg_idx = 0
-
-            # arg_val is a list of integers, e.g., [61, 54], [10], etc.
-            arg_val_match = re.search(r'arg val:\s*(\[[^\]]*\])', error_msg)
-            if arg_val_match:
-                arg_val_str = arg_val_match.group(1)
-                try:
-                    arg_val = list(map(int, re.findall(r'-?\d+', arg_val_str)))
-                except Exception:
-                    arg_val = [0]
-            else:
-                arg_val = [0]
-
-            # Remove all occurrences of this primitive where:
-            print("arg_val = ", arg_val)
-            # if arg is a constant, any constant at arg_idx
-            if arg_val[0] < 13:
-                print("is constant")
-                instr_list = [
-                    item for item in instr_list
-                    if not (
-                        len(ProgUtils.parse_arguments(item)) > arg_idx and 
-                        isinstance(ProgUtils.parse_arguments(item)[arg_idx][0], int) and
-                        ProgUtils.parse_arguments(item)[arg_idx][0] < 13 and
-                        item[1] == instr[1]
-                    )
-                ]
-                return instr_list
-            elif len(arg_val) == 1 and arg_val[0] >= (len(DSL.semantics) + ProgUtils.NUM_SPECIAL_TOKENS):
-                # if arg is a reference, that specific reference ID at that arg_idx
-                instr_list = [
-                    item for item in instr_list
-                    if not (
-                        len(ProgUtils.parse_arguments(item)) > arg_idx and
-                        item[1] == instr[1] and
-                        ProgUtils.parse_arguments(item)[arg_idx][0] == arg_val[0]
-                    )
-                ]
-                return instr_list
-            elif len(arg_val) == 2:
-                # if arg is an attribute, any attribute at that arg_idx
-                instr_list = [
-                    item for item in instr_list
-                    if not (
-                        item[1] == instr[1] and
-                        len(ProgUtils.parse_arguments(item)) > arg_idx and
-                        len(ProgUtils.parse_arguments(item)[arg_idx]) == 2
-                    )
-                ]
-                return instr_list
-        return instr_list
-
+        return True, "Data types valid."
 
     @staticmethod
     def validate_instr_step(instr_step):
