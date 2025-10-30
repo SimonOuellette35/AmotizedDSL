@@ -69,9 +69,9 @@ class ProgUtils:
             if not ProgUtils.validate_new_grid_statement(arguments):
                 return False, 'new_grid cannot have 0 as its first or second argument.'
 
-        arg_types = ProgUtils.extract_data_types(arguments, intermediate_state)
+        arg_types = ProgUtils.extract_data_types(arguments, intermediate_state[0])
         
-        if not ProgUtils.validate_attr_usage(arguments, intermediate_state):
+        if not ProgUtils.validate_attr_usage(arguments, intermediate_state[0]):
             return False, "cannot use attributes on non-GridObject references."
 
         is_valid, error_msg = ProgUtils.check_state_variable_types(arg_types, arguments, instr[1])

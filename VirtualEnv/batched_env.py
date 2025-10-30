@@ -133,18 +133,17 @@ class BatchedAmotizedDSLEnv:
             
         return (tmp_output, comment_seq)
 
-
-    def act_inference(self, instr_step, intermediate_state):
-        tmp_output = []
+    def act_inference(self, instr_step, intermediate_state, k=3):
         if instr_step[0] == ProgUtils.EOS_TOKEN:
-            for _ in range(len(intermediate_state)):
-                tmp_output.append(None)
+            tmp_output = []
+            for k_idx in range(k):
+                tmp_output.append([])
+                for _ in range(len(intermediate_state)):
+                    tmp_output[k_idx].append([None])
         else:
             tmp_output = pi.execute_instruction_step(instr_step, intermediate_state, DSL)
             
         return tmp_output
-
-
 
     def is_goal(self, state, target):
         for k_idx in range(len(state)):
