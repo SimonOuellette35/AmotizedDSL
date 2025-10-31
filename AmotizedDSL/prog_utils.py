@@ -1,4 +1,4 @@
-from typing import List, Tuple
+from typing import List, Tuple, Union
 import re
 import AmotizedDSL.DSL as DSL
 import inspect
@@ -58,10 +58,10 @@ class ProgUtils:
         if any(isinstance(token, int) and token >= threshold_val for token in instr):
             return False, f"impossible for reference IDs to refer to ids > {num_vars}"
 
-        # Check if the instruction sequence has compatible argument types
+        # Extract the instruction sequence's arguments
         arguments = ProgUtils.parse_arguments(instr)
 
-        # Special case: new_grid cannot have 0 as its first or second argument
+        # Some primitives have special validation rules.
         primitive_idx = instr[1] - ProgUtils.NUM_SPECIAL_TOKENS
         prim_name = DSL.inverse_lookup(primitive_idx)
 
@@ -69,14 +69,49 @@ class ProgUtils:
             if not ProgUtils.validate_new_grid_statement(arguments):
                 return False, 'new_grid cannot have 0 as its first or second argument.'
 
-        arg_types = ProgUtils.extract_data_types(arguments, intermediate_state[0])
+        if prim_name == 'crop':
+            if not ProgUtils.validate_crop_statement(arguments):
+                return False, 'crops arguments ref.x, ref.y or ref.c are invalid.'
+
+        if prim_name == 'div' or prim_name == 'mod':
+            if not ProgUtils.validate_div_mod_statement(arguments):
+                return False, 'division or modulo by zero not allowed.'
+
+        # Extract the data types
+        arg_types, is_list = ProgUtils.extract_data_types(arguments, intermediate_state[0])
         
         if not ProgUtils.validate_attr_usage(arguments, intermediate_state[0]):
             return False, "cannot use attributes on non-GridObject references."
 
-        is_valid, error_msg = ProgUtils.check_state_variable_types(arg_types, arguments, instr[1])
+        is_valid, error_msg = ProgUtils.check_state_variable_types(arg_types, is_list, arguments, instr[1])
         
         return is_valid, error_msg
+
+    @staticmethod
+    def validate_crop_statement(arguments):
+
+        x_attr = DSL.prim_indices['.x']
+        y_attr = DSL.prim_indices['.y']
+        c_attr = DSL.prim_indices['.c']
+
+        for arg in arguments:
+            if len(arg) == 2:
+                attr_idx = arg[1] - ProgUtils.NUM_SPECIAL_TOKENS
+                if attr_idx == x_attr or attr_idx == y_attr or attr_idx == c_attr:
+                    return False
+
+        return True
+
+    @staticmethod
+    def validate_div_mod_statement(arguments):
+
+        for arg in arguments:
+            if len(arg) == 1:
+                arg_val = arg[0] - ProgUtils.NUM_SPECIAL_TOKENS
+                if arg_val == 0:
+                    return False
+
+        return True
 
     @staticmethod
     def validate_attr_usage(arguments, intermediate_state):
@@ -137,13 +172,15 @@ class ProgUtils:
         Goes through the arguments, resolves references to variables in intermediate_state, and returns the
         argument type for each argument. There are 5 possible argument types (it gets simplified from GridObject or List[List[Pixels]], etc.
         because of the implicit type overloading in most primitives):
-            - List[GridObject]
-            - List[Pixel]
-            - List[int]
-            - List[bool]
-            - int (constant)
+            - GridObject
+            - Pixel
+            - int
+            - bool
+        
+        We also return whether the argument is a list or not, because in some cases a List must be passed (e.g. get_index, count_items, etc.)
         '''
         arg_types = []
+        is_list = []
 
         for arg in arguments:
             arg_val = arg[0] - ProgUtils.NUM_SPECIAL_TOKENS
@@ -151,10 +188,26 @@ class ProgUtils:
                 # Constant
                 # Add int type to arg_types
                 arg_types.append(int)
+                is_list.append(False)
             else:
                 if len(arg) > 1:
-                    # Attribute reference, this is always a List[int]
+                    # Attribute reference, this is always an int
                     arg_types.append(List[int])
+                    
+                    attr_idx = arg[1] - ProgUtils.NUM_SPECIAL_TOKENS
+                    attr_name = DSL.inverse_lookup(attr_idx)
+
+                    if attr_name == '.x' or attr_name == '.y' or attr_name == '.c':
+                        is_list.append(True)
+                    else:
+                        ref_idx = arg[0] - len(DSL.semantics) - ProgUtils.NUM_SPECIAL_TOKENS    
+                        obj = intermediate_state[ref_idx]
+
+                        type_str = str(type(obj))
+                        if 'list' in type_str.lower():
+                            is_list.append(True)
+                        else:
+                            is_list.append(False)
                 else:
                     # direct object reference, just find the type of the referred variable
                     ref_idx = arg_val - len(DSL.semantics)
@@ -162,6 +215,11 @@ class ProgUtils:
 
                     # parse and simplify the possible types
                     type_str = str(type(obj))
+                    if 'list' in type_str.lower():
+                        is_list.append(True)
+                    else:
+                        is_list.append(False)
+
                     if 'GridObject' in type_str:
                         arg_types.append(List[DSL.GridObject])
                     elif 'int' in type_str:
@@ -185,7 +243,7 @@ class ProgUtils:
                     else:
                         print(f"==> Error: unknown data type: {type_str}")
 
-        return arg_types
+        return arg_types, is_list
 
 
     @staticmethod
@@ -265,13 +323,13 @@ class ProgUtils:
 
 
     @staticmethod
-    def check_state_variable_types(arg_types, arguments, primitive_idx):
+    def check_state_variable_types(arg_types, is_list, arguments, primitive_idx):
         '''
         arg_types are the types of the actual arguments passed to the function. They can be:
-        - List[GridObject]
-        - List[Pixel]
-        - List[Int] or constant (which is also int)
-        - List[bool]
+        - GridObject
+        - Pixel
+        - int
+        - bool
         
         and the primitive_idx is the index into the DSL for the primitive function being called.
         
@@ -293,28 +351,44 @@ class ProgUtils:
         annotations = prim_func.__annotations__
         if len(annotations) == 0:
             # it's a lambda expression, in which case we return True automatically
-            return True, "lambd expression, automatically valid."
+            return True, "lambda expression, automatically valid."
         
         param_names = list(inspect.signature(prim_func).parameters.keys())
 
         for arg_idx, arg_type in enumerate(arg_types):
             # Attempt to extract type annotation of the argument for prim_func
             arg_name = param_names[arg_idx]
-            arg_type_hint = annotations[arg_name]           
+            arg_type_hint = f'{annotations[arg_name]}'
             arg_val = arguments[arg_idx]
-            if 'DSL.GridObject' in f'{arg_type_hint}':
+
+            if 'Union' in arg_type_hint:
+                inner = arg_type_hint[arg_type_hint.find('[')+1:arg_type_hint.find(']')]
+                union_types = [x.strip() for x in inner.split(',')]
+
+                # For each type in the union, check if "list" is present (case-insensitive)
+                all_contain_list = all('list' in t.lower() for t in union_types)
+                
+                # If ALL union types contain 'list', but our argument is not a list, return type error
+                if all_contain_list and not is_list[arg_idx]:
+                    return False, f"ERROR: argument {arg_idx} MUST be a list, but a non-list was passed. (Union types: {union_types}, arg type: {arg_type})"
+            else:
+                if 'list' in arg_type_hint.lower():
+                    if not is_list[arg_idx]:
+                        return False, f"ERROR: argument {arg_idx} MUST be a list, but a non-list was passed."
+
+            if 'DSL.GridObject' in arg_type_hint:
                 if 'DSL.GridObject' not in f'{arg_type}':
                     return False, f"ERROR: type mismatch on argument {arg_idx} (arg type: {arg_type}, arg val: {arg_val})"
 
-            elif '~COLOR' in f'{arg_type_hint}' or 'int' in f'{arg_type_hint}' or '~DIM' in f'{arg_type_hint}':
+            elif '~COLOR' in arg_type_hint or 'int' in arg_type_hint or '~DIM' in arg_type_hint:
                 if 'int' not in f'{arg_type}':
                     return False, f"ERROR: type mismatch on argument {arg_idx} (arg type: {arg_type}, arg val: {arg_val})"
 
-            elif 'bool' in f'{arg_type_hint}':
+            elif 'bool' in arg_type_hint:
                 if 'bool' not in f'{arg_type}':
                     return False, f"ERROR: type mismatch on argument {arg_idx} (arg type: {arg_type}, arg val: {arg_val})"
 
-            elif 'Pixel' in f'{arg_type_hint}':
+            elif 'Pixel' in arg_type_hint:
                 if 'Pixel' not in f'{arg_type}':
                     return False, f"ERROR: type mismatch on argument {arg_idx} (arg type: {arg_type}, arg val: {arg_val})"
 

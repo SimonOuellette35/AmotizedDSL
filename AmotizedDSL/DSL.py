@@ -544,6 +544,9 @@ def get_color(p: Union[Pixel, List[Pixel], List[List[Pixel]]]) -> Union[COLOR, L
         return p.c
 
 def get_index(list: List[T], i: int) -> Union[T, List[T]]:
+    if not isinstance(list, List):
+        return list
+    
     if len(list) > 0 and isinstance(list[0], List):
         output = []
         for sublist in list:
@@ -1555,7 +1558,8 @@ def set_color(grid: Union[GridObject, List[GridObject]], c_values: Union[int, Li
 
         return grid_list
 
-def crop(g: Union[GridObject, List[GridObject]], x1: List[int], y1: List[int], x2: List[int], y2: List[int]) -> GridObject:
+def crop(g: Union[GridObject, List[GridObject]], x1: Union[int, List[int]], y1: Union[int, List[int]], x2: Union[int, List[int]], 
+         y2: Union[int, List[int]]) -> GridObject:
     def crop_grid(g, x1, y1, x2, y2):
         new_pixels = []
         for pixel in g.pixels:
