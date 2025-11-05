@@ -96,10 +96,26 @@ class BatchedAmotizedDSLEnv:
             current_node = node_sequence[i]
 
             if current_node.parent_node is not None:
-                instr_seq = current_node.parent_node.instruction_seqs[current_node.instruction_idx]
+                instr_seq_idx = current_node.parent_node.instruction_seqs[current_node.instruction_idx]
+                
+                # Resolve instruction index to actual instruction sequence if needed
+                # (instruction_seqs now stores indices instead of full sequences)
+                if isinstance(instr_seq_idx, int):
+                    # Import here to avoid circular import issues
+                    try:
+                        from search.tree_innovation_MCTS_parallel_structural import get_instruction_from_index
+                        instr_seq = get_instruction_from_index(instr_seq_idx)
+                    except (ImportError, ValueError, IndexError) as e:
+                        # If we can't resolve the index, skip this node (shouldn't happen in normal operation)
+                        print(f"Warning: Could not resolve instruction index {instr_seq_idx}: {e}")
+                        i += 1
+                        continue
+                else:
+                    # Already a list (legacy format or not using indices)
+                    instr_seq = instr_seq_idx
                 
                 # Check if it's a delete operation (starts with [0, 25])
-                if instr_seq[0] == 0 and instr_seq[1] == del_token_id:
+                if isinstance(instr_seq, list) and len(instr_seq) > 1 and instr_seq[0] == 0 and instr_seq[1] == del_token_id:
                     # Get the state index to delete from the next token in the sequence
                     state_idx_to_del = instr_seq[3]
                     state_idx_to_del -= DSL_size
