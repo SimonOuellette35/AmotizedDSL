@@ -198,7 +198,7 @@ def execute_instruction_step_batch(instr_step_batch, intermediate_state_batch, p
     return batch_outputs
 
 
-def execute_instruction_step(instr_step, intermediate_state, primitives, verbose=False, max_int=55):
+def execute_instruction_step(instr_step, intermediate_state, primitives, verbose=False):
 
     if ProgUtils.validate_instr_step(instr_step):
 
@@ -233,13 +233,17 @@ def execute_instruction_step(instr_step, intermediate_state, primitives, verbose
             return prog_output
         except:
             # Capture and display the traceback of the exception
-            import traceback
-            print("Exception occurred during instruction step execution:")
-            traceback.print_exc()
+            if verbose:
+                import traceback
+                print("Exception occurred during instruction step execution:")
+                traceback.print_exc()
+
             return None
     
     else:
-        print("==> ERROR: program is invalid!")
+        if verbose:
+            print("==> ERROR: program is invalid!")
+            
         return None
 
 

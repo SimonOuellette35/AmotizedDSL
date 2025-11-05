@@ -103,7 +103,6 @@ class BatchedAmotizedDSLEnv:
                     # Get the state index to delete from the next token in the sequence
                     state_idx_to_del = instr_seq[3]
                     state_idx_to_del -= DSL_size
-                    print(f"==> DELETING @ state_idx_to_del = {state_idx_to_del} -- current idx {i}, current node_sequence len = {len(node_sequence)}")
                     
                     # Remove the item at that index from node_sequence
                     if state_idx_to_del < i and state_idx_to_del >= 0:
