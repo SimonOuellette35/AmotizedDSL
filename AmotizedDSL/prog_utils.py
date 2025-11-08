@@ -2,6 +2,8 @@ from typing import List, Tuple, Union
 import re
 import AmotizedDSL.DSL as DSL
 import inspect
+import traceback
+import numpy as np
 
 
 class ProgUtils:
@@ -33,6 +35,102 @@ class ProgUtils:
     EOS_TOKEN = 3           # End of sentence
 
     NUM_SPECIAL_TOKENS = 4
+
+    TYPE_GRIDOBJECT = 0
+    TYPE_INT = 1
+    TYPE_BOOL = 2
+    TYPE_PIXEL = 3
+    TYPE_LIST_GRIDOBJECT = 4
+    TYPE_LIST_INT = 5
+    TYPE_LIST_BOOL = 6
+    TYPE_LIST_PIXEL = 7
+    NUM_TYPE_TOKENS = 8  # Number of distinct type tokens
+
+    @staticmethod
+    def get_variable_type_code(var):
+        """
+        Convert a variable from intermediate state to an integer type code.
+        
+        Args:
+            var: A variable from intermediate state (Grid, GridObject, int, bool, Pixel, or list)
+            
+        Returns:
+            Integer code representing the variable type
+        """
+        if var is None:
+            return ProgUtils.TYPE_GRIDOBJECT  # Default to int for None
+        
+        type_str = str(type(var))
+        
+        if 'list' in type_str.lower() or isinstance(var, list) or isinstance(var, np.ndarray):
+            if len(var) == 0:
+                return ProgUtils.TYPE_LIST_GRIDOBJECT  # Default for empty list
+
+            # Check element type - handle nested lists by checking first element recursively
+            first_elem = var[0]
+
+            # If first element is also a list/array, check its first element
+            first_elem_type_str = str(type(first_elem))
+            if 'list' in first_elem_type_str.lower() or isinstance(first_elem, list) or isinstance(first_elem, np.ndarray):
+                if len(first_elem) == 0:
+                    return ProgUtils.TYPE_LIST_GRIDOBJECT
+                # Check the nested element type
+                nested_elem = first_elem[0]
+                nested_elem_type = str(type(nested_elem))
+                # Check if nested element is also a list (third level of nesting)
+                if 'list' in nested_elem_type.lower() or isinstance(nested_elem, list) or isinstance(nested_elem, np.ndarray):
+                    if len(nested_elem) == 0:
+                        return ProgUtils.TYPE_LIST_PIXEL  # Default for triple nested empty list
+                    # Check the triple nested element type
+                    triple_nested_elem = nested_elem[0]
+                    triple_nested_elem_type = str(type(triple_nested_elem))
+                    if 'GridObject' in triple_nested_elem_type:
+                        return ProgUtils.TYPE_LIST_GRIDOBJECT
+                    elif 'Pixel' in triple_nested_elem_type:
+                        return ProgUtils.TYPE_LIST_PIXEL
+                    elif 'int' in triple_nested_elem_type:
+                        return ProgUtils.TYPE_LIST_INT
+                    elif 'bool' in triple_nested_elem_type:
+                        return ProgUtils.TYPE_LIST_BOOL
+                    else:
+                        print(f"==> ERROR: unknown variable type {triple_nested_elem_type} (nested in list of list)!")
+                        exit(-1)
+                elif 'GridObject' in nested_elem_type:
+                    return ProgUtils.TYPE_LIST_GRIDOBJECT
+                elif 'Pixel' in nested_elem_type:
+                    return ProgUtils.TYPE_LIST_PIXEL
+                elif 'int' in nested_elem_type:
+                    return ProgUtils.TYPE_LIST_INT
+                elif 'bool' in nested_elem_type:
+                    return ProgUtils.TYPE_LIST_BOOL
+                else:
+                    print(f"==> ERROR: unknown variable type {nested_elem_type} (nested in list)!")
+                    exit(-1)
+            else:
+                # First element is not a list, check its type directly
+                elem_type = str(type(first_elem))
+                if 'GridObject' in elem_type:
+                    return ProgUtils.TYPE_LIST_GRIDOBJECT
+                elif 'Pixel' in elem_type:
+                    return ProgUtils.TYPE_LIST_PIXEL
+                elif 'int' in elem_type:
+                    return ProgUtils.TYPE_LIST_INT
+                elif 'bool' in elem_type:
+                    return ProgUtils.TYPE_LIST_BOOL
+                else:
+                    print(f"==> ERROR: unknown variable type {elem_type} (element in list)!")
+                    exit(-1)
+        elif 'GridObject' in type_str:
+            return ProgUtils.TYPE_GRIDOBJECT
+        elif 'Pixel' in type_str:
+            return ProgUtils.TYPE_PIXEL
+        elif 'int' in type_str:
+            return ProgUtils.TYPE_INT
+        elif 'bool' in type_str:
+            return ProgUtils.TYPE_BOOL
+        else:
+            print(f"==> ERROR: unknown variable type {type_str}!")
+            exit(-1)
 
     @staticmethod
     def validate_instruction(instr, intermediate_state):
@@ -244,6 +342,257 @@ class ProgUtils:
                         print(f"==> Error: unknown data type: {type_str}")
 
         return arg_types, is_list
+
+    @staticmethod
+    def extract_var_types(arguments, var_types):
+        """
+        For each argument in 'arguments', determines the type directly from the corresponding 'var_types' entry.
+        Also returns whether the argument is a list or not, based on the resolved type.
+        If an argument is a constant (index < 10 after offset), it is treated as an int (not a list).
+
+        var_types: list of types (e.g., int, List[int], DSL.GridObject, etc.) corresponding to variables in intermediate_state.
+        """
+
+        arg_types = []
+
+        for arg in arguments:
+            arg_val = arg[0] - ProgUtils.NUM_SPECIAL_TOKENS
+            if arg_val < 10:
+                # Constant: Always int (not a list)
+                arg_types.append(ProgUtils.TYPE_INT)
+            else:
+                if len(arg) > 1:
+                    # Attribute reference: always List[int]
+                    attr_idx = arg[1] - ProgUtils.NUM_SPECIAL_TOKENS
+                    attr_name = DSL.inverse_lookup(attr_idx)
+                    if attr_name in ('.x', '.y', '.c'):
+                        arg_types.append(ProgUtils.TYPE_LIST_INT)
+                    else:
+                        arg_types.append(ProgUtils.TYPE_INT)
+                else:
+                    # Direct variable reference, lookup from var_types
+                    # Variables in var_types are indexed after DSL.semantics
+                    var_idx = arg_val - len(DSL.semantics)
+                    typ = var_types[var_idx]
+                    arg_types.append(typ)
+
+        return arg_types
+
+    # @staticmethod
+    # def infer_from_parameter_lists():
+    #     # TODO: 5) there are list and non-list examples? If so, must distinguish somehow which is being returned!
+    #     # TODO: 6) to do this, check the parameter types used. If they are all List, easy: it's the list type.
+    #     # TODO: 7) if, none of them is list, easy: it's the non-list type.
+    #     # TODO: 8) if it's a mix, must find the parameters of the same type as the return type. Are they list? If so, it's the list type,
+    #     #  if not, it's not the list type.
+    #     #   Or rather: it any is List, the output is List? Actually depends on the primitive's logic? Examples:
+    #     #   - less_than(a: Union[int, List[int], List[List[int]]], b: Union[int, List[int], List[List[int]]]) -> Union[bool, List[bool], List[List[bool]]]:
+    #     #
+    #     #       ==> if any is list, use list, else use non-list.
+    #     #
+    #     #   - get_index(list: List[T], i: int) -> Union[T, List[T]]:
+    #     #
+    #     #       ==> T if list is List[T], List[T] is list is List[List[T]]!
+    #     #
+    #     #   - addition(a: Union[int, List[int], List[List[int]]], b: Union[int, List[int], List[List[int]]]) -> Union[int, List[int]]:
+    #     #
+    #     #       ==> if any is list, use list, else use non-list.
+    #     #
+    #     #   - equal(a: Union[int, List[int]], b: Union[int, List[int]]) -> Union[bool, List[bool]]:
+    #     #
+    #     #       ==> if any is list, use list, else use non-list.
+    #     #
+    #     #   - set_pixels(target_grid: Union[GridObject, List[GridObject]], set_x: Union[DIM, List[DIM], List[List[DIM]]],  set_y: Union[DIM, List[DIM], List[List[DIM]]],
+    #     #       colors: Union[COLOR, List[COLOR], List[List[COLOR]]]) -> Union[GridObject, List[GridObject]]:
+    #     #
+    #     #       ==> if target_grid is GridObject, use GridObject, else use List
+    #     #
+    #     #   - crop(g: Union[GridObject, List[GridObject]], x1: Union[int, List[int]], y1: Union[int, List[int]], x2: Union[int, List[int]], 
+    #     #       y2: Union[int, List[int]]) -> Union[GridObject, List[GridObject]]:
+    #     #
+    #     #       ==> if g is GridObject, use GridObject, else use List
+    #     #
+    #     #   Heuristic:
+    #     #       --> actually construct an example argument of the same type as in the instruction sequence, execute the command, and get the resulting output?
+
+
+    # @staticmethod
+    # def infer_result_type(instruction_seq, state_var_types):
+    #     # 1) get the primitive function
+    #     primitive_idx = instruction_seq[1] - ProgUtils.NUM_SPECIAL_TOKENS
+
+    #     # TODO: special case: switch
+
+    #     prim_name = DSL.inverse_lookup(primitive_idx)
+    #     prim_func = DSL.semantics[prim_name]
+
+    #     # 2) inspect the primitive function's signature, especially its return type
+    #     annotations = prim_func.__annotations__
+    #     result_ann = annotations["return"]
+
+    #     # TODO: if return type is T, it must take the actual type of the T parameters!
+
+    #     # 3) if it's not a Union, this directly gives us the answer.
+    #     if "Union" not in result_ann:
+    #         # TODO: re-use such a method? Do I already have one?
+    #         return convert_to_type_int(result_ann)
+    #     else:
+    #     # 4) if it's a Union:
+    #         # List all of the types inside the Union brackets in result_ann
+    #         start = result_ann.find('[') + 1
+    #         end = result_ann.rfind(']')
+    #         union_types = [t.strip() for t in result_ann[start:end].split(',')]
+
+    #         # For each type in the union, check if "list" is present (case-insensitive)
+    #         all_contain_list = all('list' in t.lower() for t in union_types)
+            
+    #         # If ALL union types contain 'list', simply return that list type
+    #         if all_contain_list:
+    #             return convert_to_type_int(union_types[0])
+    #         else:
+    #             return infer_from_parameter_lists()
+
+    @staticmethod
+    def generate_var_examples(data_types):
+        var_examples = []
+        for arg_idx, data_type in enumerate(data_types):
+            if data_type == ProgUtils.TYPE_BOOL:
+                var_examples.append(True)
+            elif data_type == ProgUtils.TYPE_INT:
+                if arg_idx < 2:
+                    var_examples.append(1)
+                else:
+                    var_examples.append(2)
+            elif data_type == ProgUtils.TYPE_GRIDOBJECT:
+                var_examples.append(DSL.GridObject.from_grid([
+                    [0, 9, 9],
+                    [0, 6, 9],
+                    [6, 6, 0]
+                ]))
+
+            elif data_type == ProgUtils.TYPE_PIXEL:
+                var_examples.append(DSL.Pixel(1, 1, 5))
+
+            elif data_type == ProgUtils.TYPE_LIST_BOOL:
+                if arg_idx == 0:
+                    var_examples.append([True, False, True])
+                elif arg_idx == 1:
+                    var_examples.append([True, True, True])
+                else:
+                    var_examples.append([True, False, False])
+
+            elif data_type == ProgUtils.TYPE_LIST_INT:
+                var_examples.append([3 + arg_idx, 4 + arg_idx, 5 + arg_idx])
+
+            elif data_type == ProgUtils.TYPE_LIST_GRIDOBJECT:
+                var_examples.append([DSL.GridObject.from_grid([
+                    [9, 9],
+                    [0, 9]
+                ]),
+                DSL.GridObject.from_grid([
+                    [0, 6],
+                    [6, 6]
+                ]),
+                DSL.GridObject.from_grid([
+                    [3, 3],
+                    [3, 3]
+                ])])
+
+            elif data_type == ProgUtils.TYPE_LIST_PIXEL:
+                var_examples.append([DSL.Pixel(1+arg_idx, 1+arg_idx, 5), DSL.Pixel(2, 2, 9), DSL.Pixel(1, arg_idx, 4)])
+            else:
+                print(f"==> ERROR: unknown data_type {data_type}")
+                exit(-1)
+
+        return var_examples
+
+    @staticmethod
+    def infer_switch_type(instruction_seq, state_var_types):
+        arguments = ProgUtils.parse_arguments(instruction_seq)
+        data_types = ProgUtils.extract_var_types(arguments, state_var_types)
+
+        n_args = len(arguments)
+        group_n = (n_args - 1) // 2
+
+        ops_type = data_types[group_n]
+
+        if ops_type == ProgUtils.TYPE_LIST_BOOL:
+            return ProgUtils.TYPE_LIST_BOOL
+        elif ops_type == ProgUtils.TYPE_LIST_INT:
+            return ProgUtils.TYPE_LIST_INT
+        elif ops_type == ProgUtils.TYPE_LIST_PIXEL:
+            return ProgUtils.TYPE_LIST_PIXEL
+        elif ops_type == ProgUtils.TYPE_LIST_GRIDOBJECT:
+            return ProgUtils.TYPE_LIST_GRIDOBJECT
+
+        is_list_cond = False
+        if data_types[0] == ProgUtils.TYPE_LIST_BOOL:
+            is_list_cond = True
+
+        if ops_type == ProgUtils.TYPE_BOOL:
+            if is_list_cond:
+                return ProgUtils.TYPE_LIST_BOOL
+            else:
+                return ProgUtils.TYPE_BOOL
+        elif ops_type == ProgUtils.TYPE_INT:
+            if is_list_cond:
+                return ProgUtils.TYPE_LIST_INT
+            else:
+                return ProgUtils.TYPE_INT
+        elif ops_type == ProgUtils.TYPE_PIXEL:
+            if is_list_cond:
+                return ProgUtils.TYPE_LIST_PIXEL
+            else:
+                return ProgUtils.TYPE_PIXEL
+        elif ops_type == ProgUtils.TYPE_GRIDOBJECT:
+            if is_list_cond:
+                return ProgUtils.TYPE_LIST_GRIDOBJECT
+            else:
+                return ProgUtils.TYPE_GRIDOBJECT
+
+        print("==> ERROR: should reach here in infer_switch_type...")
+        exit(-1)
+
+    @staticmethod
+    def infer_result_type(instruction_seq, state_var_types):
+        primitive_idx = instruction_seq[1] - ProgUtils.NUM_SPECIAL_TOKENS
+
+        prim_name = DSL.inverse_lookup(primitive_idx)
+
+        if prim_name == 'get_objects':
+            return ProgUtils.TYPE_LIST_GRIDOBJECT
+
+        if prim_name == 'get_bg':
+            return ProgUtils.TYPE_GRIDOBJECT
+
+        if prim_name == 'switch':
+            # Special case
+            return ProgUtils.infer_switch_type(instruction_seq, state_var_types)
+
+        prim_func = DSL.semantics[prim_name]
+
+        arguments = ProgUtils.parse_arguments(instruction_seq)
+        data_types = ProgUtils.extract_var_types(arguments, state_var_types)
+
+        # generate variable examples and execute the instruction to get a result example
+        var_examples = ProgUtils.generate_var_examples(data_types)
+
+        print(var_examples)
+        try:
+            result = prim_func(*var_examples)
+
+            if result is None:
+                print("ERROR: result is None!")
+                exit(-1)
+
+        except Exception as e:
+            print("Exception while executing primitive function:")
+            traceback.print_exc()
+            print(f"Error message: {str(e)}")
+            exit(-1)
+
+        # get result type as an integer
+        return ProgUtils.get_variable_type_code(result)
 
 
     @staticmethod

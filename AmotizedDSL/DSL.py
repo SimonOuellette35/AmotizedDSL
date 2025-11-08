@@ -883,7 +883,7 @@ def between(a: int, b: int, c: int) -> bool:
     else:
         return False
 
-def equal(a, b):
+def equal(a: Union[int, List[int]], b: Union[int, List[int]]) -> Union[bool, List[bool]]:
     def equal1(a: int, b: int) -> bool:
         return a == b
 
@@ -910,7 +910,7 @@ def equal(a, b):
         return equal1(a, b)
 
 
-def not_equal(a, b):
+def not_equal(a: Union[int, List[int]], b: Union[int, List[int]]) -> Union[bool, List[bool]]:
     def not_equal1(a: int, b: int) -> bool:
         return a != b
 
@@ -1170,14 +1170,14 @@ def colorSet(g: Union[GridObject, List[GridObject]]) -> Union[List[COLOR], List[
 
         return all_colors
 
-def keep(input_list: Union[List[int], List[GridObject]], flags: List[bool]) -> Union[List[int], List[GridObject]]:
+def keep(input_list: Union[List[T]], flags: List[bool]) -> List[T]:
     output = []
     for idx in range(len(input_list)):
         if flags[idx]:
             output.append(input_list[idx])
     return output
 
-def exclude(input_list: Union[List[int], List[GridObject]], flags: List[bool]) -> Union[List[int], List[GridObject]]:
+def exclude(input_list: Union[List[T]], flags: List[bool]) -> List[T]:
     output = []
     for idx in range(len(input_list)):
         if not flags[idx]:
@@ -1186,9 +1186,9 @@ def exclude(input_list: Union[List[int], List[GridObject]], flags: List[bool]) -
     return output
 
 def set_difference(
-    a: Union[List[int], List[List[int]], List[List[List[int]]], List['Pixel'], List[List['Pixel']], List[List[List['Pixel']]]],
-    b: Union[List[int], List[List[int]], List[List[List[int]]], List['Pixel'], List[List['Pixel']], List[List[List['Pixel']]]]
-) -> Union[List[int], List[List[int]], List[List[List[int]]], List['Pixel'], List[List['Pixel']], List[List[List['Pixel']]]]:
+    a: Union[List[T], List[List[T]], List[List[List[T]]]],
+    b: Union[List[T], List[List[T]], List[List[List[T]]]]
+) -> Union[List[T], List[List[T]], List[List[List[T]]]]:
     """
     Computes the set difference between a and b, supporting nested lists and both int and Pixel types.
     """
@@ -1494,7 +1494,7 @@ def set_pixels(target_grid: Union[GridObject, List[GridObject]],
         return set_single_grid_pixels(target_grid, set_x, set_y, colors)
 
 def set_x(grid: Union[GridObject, List[GridObject]], x_values: Union[List[int], List[List[int]]]) -> Union[GridObject, List[GridObject]]:
-    def set_grid_x(grid: GridObject, x_values: List[int]) -> GridObject:
+    def set_grid_x(grid: GridObject, x_values: List[int]) -> Union[GridObject, List[GridObject]]:
 
         # Assign to each grid.pixels element's .x attribute the corresponding value in x_values
         new_pixels = []
@@ -1514,7 +1514,7 @@ def set_x(grid: Union[GridObject, List[GridObject]], x_values: Union[List[int], 
         return grid_list
 
 def set_y(grid: Union[GridObject, List[GridObject]], y_values: Union[List[int], List[List[int]]]) -> Union[GridObject, List[GridObject]]:
-    def set_grid_y(grid: GridObject, y_values: List[int]) -> GridObject:
+    def set_grid_y(grid: GridObject, y_values: List[int]) -> Union[GridObject, List[GridObject]]:
         # Assign to each grid.pixels element's .y attribute the corresponding value in y_values
         new_pixels = []
         for idx, pixel in enumerate(grid.pixels):
@@ -1533,7 +1533,7 @@ def set_y(grid: Union[GridObject, List[GridObject]], y_values: Union[List[int], 
         return grid_list
 
 def set_color(grid: Union[GridObject, List[GridObject]], c_values: Union[int, List[int], List[List[int]]]) -> Union[GridObject, List[GridObject]]:
-    def set_grid_c(grid: GridObject, c_values: Union[int, List[int]]) -> GridObject:
+    def set_grid_c(grid: GridObject, c_values: Union[int, List[int]]) -> Union[GridObject, List[GridObject]]:
         # Assign to each grid.pixels element's .c attribute the corresponding value in c_values
         new_pixels = []
         for idx, pixel in enumerate(grid.pixels):
@@ -1559,7 +1559,8 @@ def set_color(grid: Union[GridObject, List[GridObject]], c_values: Union[int, Li
         return grid_list
 
 def crop(g: Union[GridObject, List[GridObject]], x1: Union[int, List[int]], y1: Union[int, List[int]], x2: Union[int, List[int]], 
-         y2: Union[int, List[int]]) -> GridObject:
+         y2: Union[int, List[int]]) -> Union[GridObject, List[GridObject]]:
+         
     def crop_grid(g, x1, y1, x2, y2):
         new_pixels = []
         for pixel in g.pixels:
