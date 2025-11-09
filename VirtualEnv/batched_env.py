@@ -103,7 +103,7 @@ class BatchedAmotizedDSLEnv:
                 if isinstance(instr_seq_idx, int):
                     # Import here to avoid circular import issues
                     try:
-                        from search.tree_innovation_MCTS_parallel_structural import get_instruction_from_index
+                        from search.tree_search_common import get_instruction_from_index
                         instr_seq = get_instruction_from_index(instr_seq_idx)
                     except (ImportError, ValueError, IndexError) as e:
                         # If we can't resolve the index, skip this node (shouldn't happen in normal operation)

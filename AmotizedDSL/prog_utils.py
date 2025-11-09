@@ -577,7 +577,6 @@ class ProgUtils:
         # generate variable examples and execute the instruction to get a result example
         var_examples = ProgUtils.generate_var_examples(data_types)
 
-        print(var_examples)
         try:
             result = prim_func(*var_examples)
 
