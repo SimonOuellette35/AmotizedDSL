@@ -24,6 +24,21 @@ class BatchedAmotizedDSLEnv:
         self.batched_targets = None
         self.batched_comments = None
 
+    def is_delete_op(self, instr_seq):
+
+        DSL_size = len(DSL.semantics) + ProgUtils.NUM_SPECIAL_TOKENS
+        del_token_id = DSL.prim_indices['del'] + ProgUtils.NUM_SPECIAL_TOKENS
+
+        # Check if it's a delete operation (starts with [0, 25])
+        if isinstance(instr_seq, list) and len(instr_seq) > 1 and instr_seq[0] == 0 and instr_seq[1] == del_token_id:
+            # Get the state index to delete from the next token in the sequence
+            state_idx_to_del = instr_seq[3]
+            state_idx_to_del -= DSL_size
+            
+            return state_idx_to_del
+
+        return -1
+
     def init(self):
         batch_init_state = []
         targets = []
@@ -81,59 +96,6 @@ class BatchedAmotizedDSLEnv:
             return True, prim_name
         else:
             return False, prim_name
-
-    def get_cached_sequence(self, node_sequence):
-        # NOTE: the confusing this about this is that node 0's state is the input grid, and its
-        # instruction seq is the first instruction to be executed given the input grid. Node 1's
-        # state is the output of applying instruction 0, while it's instruction is the second
-        # instruction to be executed, etc.
-        DSL_size = len(DSL.semantics) + ProgUtils.NUM_SPECIAL_TOKENS
-        del_token_id = DSL.prim_indices['del'] + ProgUtils.NUM_SPECIAL_TOKENS
-
-        # Process each node in sequence, checking for delete operations
-        i = 0
-        while i < len(node_sequence):
-            current_node = node_sequence[i]
-
-            if current_node.parent_node is not None:
-                instr_seq_idx = current_node.parent_node.instruction_seqs[current_node.instruction_idx]
-                
-                # Resolve instruction index to actual instruction sequence if needed
-                # (instruction_seqs now stores indices instead of full sequences)
-                if isinstance(instr_seq_idx, int):
-                    # Import here to avoid circular import issues
-                    try:
-                        from search.tree_search_common import get_instruction_from_index
-                        instr_seq = get_instruction_from_index(instr_seq_idx)
-                    except (ImportError, ValueError, IndexError) as e:
-                        # If we can't resolve the index, skip this node (shouldn't happen in normal operation)
-                        print(f"Warning: Could not resolve instruction index {instr_seq_idx}: {e}")
-                        i += 1
-                        continue
-                else:
-                    # Already a list (legacy format or not using indices)
-                    instr_seq = instr_seq_idx
-                
-                # Check if it's a delete operation (starts with [0, 25])
-                if isinstance(instr_seq, list) and len(instr_seq) > 1 and instr_seq[0] == 0 and instr_seq[1] == del_token_id:
-                    # Get the state index to delete from the next token in the sequence
-                    state_idx_to_del = instr_seq[3]
-                    state_idx_to_del -= DSL_size
-                    
-                    # Remove the item at that index from node_sequence
-                    if state_idx_to_del < i and state_idx_to_del >= 0:
-                        # Also delete the current, actual delete node
-                        del node_sequence[i]
-                        del node_sequence[state_idx_to_del]
-        
-                        i -= 1
-                        continue
-            
-            # Move to the next node
-            i += 1
-
-        return node_sequence
-
 
     def act_inference_comment(self, instr_step, full_intermediate_state):
         intermediate_state, comment = full_intermediate_state
