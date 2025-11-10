@@ -336,6 +336,18 @@ class ProgUtils:
                             arg_types.append(List[DSL.Pixel])
                         elif 'GridObject' in elem_type:
                             arg_types.append(List[DSL.GridObject])
+                        elif 'list' in elem_type:
+                            elem_type = str(type(obj[0][0]))
+                            if 'int' in elem_type:
+                                arg_types.append(List[int])
+                            elif 'bool' in elem_type:
+                                arg_types.append(List[bool])
+                            elif 'Pixel' in elem_type:
+                                arg_types.append(List[DSL.Pixel])
+                            elif 'GridObject' in elem_type:
+                                arg_types.append(List[DSL.GridObject])
+                            else:
+                                print(f"==> Error: unknown list of list element type: {elem_type}")
                         else:
                             print(f"==> Error: unknown list element type: {elem_type}")
                     else:
