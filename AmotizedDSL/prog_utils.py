@@ -144,11 +144,14 @@ class ProgUtils:
         '''
         num_vars = len(intermediate_state[0])
 
-        # If num_vars == 1, remove all instructions 51 (those starting with [0, 51, 1]) from valid_instructions
         # This is the delete instruction
-        if num_vars == 1:
-            if len(instr) >= 3 and instr[0] == 0 and instr[1] == 51 and instr[2] == 1:
+        if len(instr) >= 3 and instr[0] == 0 and instr[1] == 51 and instr[2] == 1:
+            if num_vars == 1:
                 return False, "cannot have a del instruction when there is only 1 state variable."
+            else:
+                ref_idx = instr[3] - ProgUtils.NUM_SPECIAL_TOKENS - len(DSL.semantics)
+                if ref_idx == len(intermediate_state) - 1:
+                    return False, "cannot delete the output of the last instruction (because it annuls it)."
 
         # Make it impossible for reference IDs to refer to values > num_vars, so eliminate some possibilities here as well
         # Remove from valid_instructions all instruction sequences that contain 61+num_vars or higher
