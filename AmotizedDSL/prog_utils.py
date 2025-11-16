@@ -814,7 +814,7 @@ class ProgUtils:
         @param instr_step: a tuple of (context, primitive, arguments) in hand-written format (using text strings)
         @param primitives: the DSL
         
-        @return A sequence of tokens (integers) as directly outputted by the decoder in one iteration of program generation.
+        @return A sequence of tokens (integers or strings for placeholders) as directly outputted by the decoder in one iteration of program generation.
         '''
         prim_name = instr_step[0]
         args = instr_step[1]
@@ -825,25 +825,33 @@ class ProgUtils:
         label_seq.append(token_id)
         label_seq.append(ProgUtils.SOP_TOKEN)
 
+        def resolve_arg_to_token(arg_val):
+            """Resolve an argument to a token, preserving placeholder strings."""
+            # Check if this is a placeholder string (starts with "param")
+            if isinstance(arg_val, str) and arg_val.startswith("param"):
+                return arg_val  # Preserve placeholder strings as-is
+            else:
+                return ProgUtils.resolve_token_str_to_token(arg_val, primitives)
+
         if args is not None:
             for arg_idx, arg in enumerate(args):
                 # handle object-attribute pairs
                 if isinstance(arg, Tuple):
-                    tok_obj_id = ProgUtils.resolve_token_str_to_token(arg[0], primitives)
-                    tok_attr_id = ProgUtils.resolve_token_str_to_token(arg[1], primitives)
+                    tok_obj_id = resolve_arg_to_token(arg[0])
+                    tok_attr_id = resolve_arg_to_token(arg[1])
                     label_seq.append(tok_obj_id)
                     label_seq.append(tok_attr_id)
                 else:
                     if isinstance(arg, List):
                         # Here we can assume this is a switch statement, in which lists of conditions are possible.
                         for tmp_idx, arg_elem in enumerate(arg):
-                            token_id = ProgUtils.resolve_token_str_to_token(arg_elem, primitives)
+                            token_id = resolve_arg_to_token(arg_elem)
                             label_seq.append(token_id)
 
                             if tmp_idx < len(arg) - 1:
                                 label_seq.append(ProgUtils.ARG_SEP_TOKEN)
                     else:
-                        token_id = ProgUtils.resolve_token_str_to_token(arg, primitives)
+                        token_id = resolve_arg_to_token(arg)
                         label_seq.append(token_id)
 
                 if arg_idx < len(args) - 1:
