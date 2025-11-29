@@ -51,10 +51,11 @@ def resolve_arg(arg, states, primitives, verbose=True):
 def get_num_args(prim: int, DSL):
     return DSL.arg_counts[prim]
 
-def execute_step(step_token_seq, states, primitives, verbose=True):
+def execute_step(step_token_seq, states, primitives, object_mask=None, verbose=True):
     '''
     @param step_token_seq: a tuple of tokens (integers) representing the step to execute.
     @param state: [k, num states, variable]
+    @param object_mask: Optional object mask (2D numpy array or list) for get_objects/get_bg
 
     @return Returns the new intermediate state after executing the step.
     '''
@@ -69,8 +70,9 @@ def execute_step(step_token_seq, states, primitives, verbose=True):
 
     result = []
     is_del = False
-    for example in states:
+    for example_idx, example in enumerate(states):
         resolved_args = []
+        example_result = None
 
         if prim_name == 'switch':
             # 'switch' is a special statement, in that the number of arguments is dynamic, and
@@ -92,17 +94,49 @@ def execute_step(step_token_seq, states, primitives, verbose=True):
             resolved_args.append(conditions)
             resolved_args.append(operations)
             resolved_args.append(otherwise)
+            example_result = prim_func(*resolved_args)
         elif prim_name == 'del':
             result.append(DeleteAction(token_args[-1] - len(primitives.semantics)))
             is_del = True
+        elif prim_name == 'get_objects' or prim_name == 'get_bg':
+            # Special handling for get_objects and get_bg: they need the grid and object_mask
+            # The first argument should be the grid (N+0, which is example[0])
+            if len(token_args) == 0:
+                # No arguments means use N+0 (the first state variable, which is the input grid)
+                grid = example[0]
+            else:
+                # Resolve the grid argument
+                grid = resolve_arg(token_args[0], example, primitives, verbose)
+            
+            # Convert object_mask to the right format
+            if object_mask is not None:
+                import numpy as np
+                if isinstance(object_mask, np.ndarray):
+                    obj_mask = object_mask.tolist()
+                elif isinstance(object_mask, list):
+                    obj_mask = object_mask
+                else:
+                    obj_mask = None
+            else:
+                obj_mask = None
+            
+            if obj_mask is None:
+                # If no object_mask provided, create an empty one (all zeros)
+                if isinstance(grid, primitives.GridObject):
+                    grid_array = grid.to_grid()
+                    obj_mask = [[0] * grid_array.shape[1] for _ in range(grid_array.shape[0])]
+                else:
+                    obj_mask = [[0] * len(grid[0]) for _ in range(len(grid))]
+            
+            # Execute get_objects or get_bg with grid and object_mask
+            example_result = prim_func(grid, obj_mask)
         else:
             for arg in token_args:
                 tmp_arg = resolve_arg(arg, example, primitives, verbose)
                 resolved_args.append(tmp_arg)
+            example_result = prim_func(*resolved_args)
 
         if not is_del:
-            # Step 3: Execute the instruction step
-            example_result = prim_func(*resolved_args)
             result.append(example_result)
 
     return result
@@ -138,12 +172,13 @@ def kickstart_neural_primitive_program(state, primitives, obj_masks):
     # Execute the rest of the program starting from step 2 (index 1)
     return state
 
-def execute(token_seq_list, state, primitives):
+def execute(token_seq_list, state, primitives, object_mask=None):
     '''
     This function executes a whole program in token sequence format.
 
     @param token_seq_list: a list of token sequences representing the whole program (decoder output format).
     @param primitives: the DSL
+    @param object_mask: Optional object mask (2D numpy array or list) for get_objects/get_bg
 
     @return the output of the program, necessarily a Grid.
     '''
@@ -154,7 +189,7 @@ def execute(token_seq_list, state, primitives):
         if token_tuple[0] == -1:
             return state[-1]
 
-        output = execute_step(token_tuple, state, primitives)
+        output = execute_step(token_tuple, state, primitives, object_mask)
         
         if isinstance(output[0], DeleteAction):
             #print("==> Output: DeleteAction")
@@ -243,7 +278,10 @@ def execute_instruction_step(instr_step, intermediate_state, primitives, verbose
     else:
         if verbose:
             print("==> ERROR: program is invalid!")
-            
+        # INSERT_YOUR_CODE
+        import traceback
+        print("Traceback (most recent call last):")
+        traceback.print_stack()
         return None
 
 
