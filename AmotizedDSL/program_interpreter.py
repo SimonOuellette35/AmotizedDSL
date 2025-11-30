@@ -109,12 +109,19 @@ def execute_step(step_token_seq, states, primitives, object_mask=None, verbose=T
                 grid = resolve_arg(token_args[0], example, primitives, verbose)
             
             # Convert object_mask to the right format
+            # Treat empty list as None (no mask provided)
             if object_mask is not None:
                 import numpy as np
                 if isinstance(object_mask, np.ndarray):
-                    obj_mask = object_mask.tolist()
+                    if object_mask.size == 0:
+                        obj_mask = None
+                    else:
+                        obj_mask = object_mask.tolist()
                 elif isinstance(object_mask, list):
-                    obj_mask = object_mask
+                    if len(object_mask) == 0:
+                        obj_mask = None
+                    else:
+                        obj_mask = object_mask
                 else:
                     obj_mask = None
             else:

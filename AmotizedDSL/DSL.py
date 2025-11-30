@@ -397,7 +397,7 @@ def get_objects(grid: GridObject, obj_mask: List[List[int]]) -> List[GridObject]
     return objects
 
 
-def get_bg(grid: GridObject, obj_mask: List[int]) -> GridObject:
+def get_bg(grid: GridObject, obj_mask: List[List[int]]) -> GridObject:
     """
     Extracts the background object (instance id 0) from the grid using the object mask.
     All pixels in obj_mask with value 0 are considered background.
