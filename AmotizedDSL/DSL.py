@@ -3,6 +3,8 @@ import numpy as np
 import math
 import copy
 from collections import Counter
+import collections
+
 
 
 T = TypeVar('T')
@@ -403,24 +405,48 @@ def get_bg(grid: GridObject, obj_mask: List[List[int]]) -> GridObject:
     All pixels in obj_mask with value 0 are considered background.
     Returns a single GridObject representing the background.
     """
-    # Get all (y, x) coordinates in obj_mask that correspond to the value 0 (background)
-    bg_coords = np.argwhere(np.array(obj_mask) == 0)
+    # Convert obj_mask to numpy array if needed
+    obj_mask_np = np.array(obj_mask)
+    bg_coords = np.argwhere(obj_mask_np == 0)
     pixels = []
+    color_list = []
 
     for y, x in bg_coords:
         color = None
-        
+
         # Find the pixel in grid.pixels with matching x, y
         for px in grid.pixels:
             if px.x == x and px.y == y:
                 color = px.c
                 break
-                
+
         if color is None:
             color = int(grid.to_grid()[y, x])
-    
+
+        color_list.append(color)
         pixels.append(Pixel(int(x), int(y), int(color)))
-    
+
+    # If there are any background pixels, calculate the most common color
+    if color_list:
+        color_counter = collections.Counter(color_list)
+        most_common_color = color_counter.most_common(1)[0][0]
+    else:
+        most_common_color = 0  # fallback: no background pixel found
+
+    # For each coord (y, x) in obj_mask, if matching ID is not zero, add the corresponding Pixel instance, setting its color to most_common_color
+    for y in range(obj_mask_np.shape[0]):
+        for x in range(obj_mask_np.shape[1]):
+            if obj_mask_np[y, x] != 0:
+                # Find the pixel in grid.pixels with matching x, y
+                matching_pixel = None
+                for px in grid.pixels:
+                    if px.x == x and px.y == y:
+                        matching_pixel = px
+                        break
+                if matching_pixel is not None:
+                    # Create a new Pixel instance at (x, y) with most_common_color
+                    pixels.append(Pixel(int(x), int(y), int(most_common_color)))
+
     if pixels:
         ul_x = min(pixel.x for pixel in pixels)
         ul_y = min(pixel.y for pixel in pixels)
@@ -944,16 +970,17 @@ def rebuild_grid(bg_grid: GridObject, obj_list: List[GridObject]) -> GridObject:
     Starting from an input grid, copy-paste the list of objects from obj_list onto
     the grid.
     '''
-    output_pixels = bg_grid.pixels
+    bg_matrix = bg_grid.to_grid()
 
-    for obj_id, obj in enumerate(obj_list):
+    for obj in obj_list:
         # Then, set all pixels in output_pixels whose (x, y) match those in obj.pixels to their '.c' values
         pixel_map = {(p.x + obj.ul_x, p.y + obj.ul_y): p.c for p in obj.pixels}
-        for pixel in output_pixels:
-            if (pixel.x, pixel.y) in pixel_map:
-                pixel.c = pixel_map[(pixel.x, pixel.y)]
+        for px_y in range(bg_matrix.shape[0]):
+            for px_x in range(bg_matrix.shape[1]):
+                if (px_x, px_y) in pixel_map:
+                    bg_matrix[px_y, px_x] = pixel_map[(px_x, px_y)]
 
-    return GridObject(output_pixels)
+    return GridObject.from_grid(bg_matrix)
 
 def switch(conditions, operations, otherwise):
     '''
