@@ -965,13 +965,15 @@ def greater_than(a: int, b: int) -> bool:
     else:
         return False
 
-def rebuild_grid(bg_grid: GridObject, obj_list: List[GridObject]) -> GridObject:
+def rebuild_grid(bg_grid: GridObject, obj_list: Union[GridObject, List[GridObject]]) -> GridObject:
     '''
     Starting from an input grid, copy-paste the list of objects from obj_list onto
     the grid.
     '''
     bg_matrix = bg_grid.to_grid()
-
+    if isinstance(obj_list, GridObject):
+        obj_list = [obj_list]
+        
     for obj in obj_list:
         # Then, set all pixels in output_pixels whose (x, y) match those in obj.pixels to their '.c' values
         pixel_map = {(p.x + obj.ul_x, p.y + obj.ul_y): p.c for p in obj.pixels}

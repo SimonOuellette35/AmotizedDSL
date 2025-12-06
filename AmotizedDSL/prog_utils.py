@@ -46,6 +46,196 @@ class ProgUtils:
     TYPE_LIST_PIXEL = 7
     NUM_TYPE_TOKENS = 8  # Number of distinct type tokens
 
+
+    @staticmethod
+    def convert_instruction_string_to_token_seq(instr_str):
+        # TODO: this is the new streamlined instruction text format. It is possible that some of the older conversion
+        # methods are now obsolete because of this. To be reviewed. Maybe I can also implement the ground truth program
+        # strings in the LLM format directly and get rid of the other text format. The multitude of different program
+        # representations in this codebase is starting to get confusing and I need to look into simplifying/refactoring.
+        """
+        Convert an instruction string (e.g., "get_objects(N+0)") to token sequence format.
+        
+        Args:
+            instr_str: Instruction string in format "primitive_name(arg1, arg2, ...)"
+                      where arguments can be:
+                      - "N+X" for reference IDs (X is integer)
+                      - Integer constants (0-9)
+                      - Attribute references like "N+X.y" or "N+X.x"
+        
+        Returns:
+            List of integers representing the token sequence: [SOS, primitive, SOP, args..., EOS]
+        """
+        # Parse primitive name and arguments
+        match = re.match(r'(\w+)\((.*)\)', instr_str.strip())
+        if not match:
+            return None
+        
+        prim_name = match.group(1)
+        args_str = match.group(2).strip()
+        
+        # Get primitive token ID
+        if prim_name not in DSL.prim_indices:
+            return None
+        prim_idx = DSL.prim_indices[prim_name]
+        prim_token = prim_idx + ProgUtils.NUM_SPECIAL_TOKENS
+        
+        # Build token sequence
+        token_seq = [ProgUtils.SOS_TOKEN, prim_token, ProgUtils.SOP_TOKEN]
+        
+        # Parse arguments
+        if args_str:
+            # Split arguments by comma, but be careful with nested structures
+            args = []
+            current_arg = ""
+            paren_depth = 0
+            
+            for char in args_str:
+                if char == '(':
+                    paren_depth += 1
+                    current_arg += char
+                elif char == ')':
+                    paren_depth -= 1
+                    current_arg += char
+                elif char == ',' and paren_depth == 0:
+                    args.append(current_arg.strip())
+                    current_arg = ""
+                else:
+                    current_arg += char
+            
+            if current_arg.strip():
+                args.append(current_arg.strip())
+            
+            # Convert each argument to tokens
+            for arg_idx, arg in enumerate(args):
+                arg = arg.strip()
+                if not arg:
+                    continue
+                
+                # Strip quotes if present (e.g., "param1" -> param1)
+                if (arg.startswith('"') and arg.endswith('"')) or (arg.startswith("'") and arg.endswith("'")):
+                    arg = arg[1:-1]
+                
+                # Check if it's an attribute reference (e.g., "N+0.x")
+                if '.' in arg:
+                    parts = arg.split('.', 1)
+                    obj_ref = parts[0].strip()
+                    attr_name = '.' + parts[1].strip()
+                    
+                    # Parse object reference (N+X)
+                    obj_match = re.match(r'N\+(\d+)', obj_ref)
+                    if not obj_match:
+                        return None
+                    ref_id = int(obj_match.group(1))
+                    obj_token = len(DSL.semantics) + ref_id + ProgUtils.NUM_SPECIAL_TOKENS
+                    
+                    # Parse attribute
+                    if attr_name not in DSL.prim_indices:
+                        return None
+                    attr_idx = DSL.prim_indices[attr_name]
+                    attr_token = attr_idx + ProgUtils.NUM_SPECIAL_TOKENS
+                    
+                    token_seq.append(obj_token)
+                    token_seq.append(attr_token)
+                else:
+                    # Check if it's a reference (N+X) or constant
+                    if arg.startswith('N+'):
+                        ref_match = re.match(r'N\+(\d+)', arg)
+                        if not ref_match:
+                            return None
+                        ref_id = int(ref_match.group(1))
+                        ref_token = len(DSL.semantics) + ref_id + ProgUtils.NUM_SPECIAL_TOKENS
+                        token_seq.append(ref_token)
+                    else:
+                        # Check if it's a param placeholder (e.g., "param1", "param2")
+                        if re.match(r'^param\d+$', arg):
+                            # Keep param placeholder as string in token sequence
+                            token_seq.append(arg)
+                        else:
+                            # Try to parse as integer constant
+                            try:
+                                const_val = int(arg)
+                                if 0 <= const_val <= 9:
+                                    const_token = const_val + ProgUtils.NUM_SPECIAL_TOKENS
+                                    token_seq.append(const_token)
+                                else:
+                                    return None
+                            except ValueError:
+                                return None
+                
+                # Add argument separator if not last argument
+                if arg_idx < len(args) - 1:
+                    token_seq.append(ProgUtils.ARG_SEP_TOKEN)
+        
+        token_seq.append(ProgUtils.EOS_TOKEN)
+        return token_seq
+
+    @staticmethod
+    def validate_ref_ids(prog_list):
+        """
+        Validate reference IDs in a program.
+        
+        Args:
+            prog_list: List of instruction strings in format "primitive_name(arg1, arg2, ...)"
+                     Each instruction string represents one program step.
+                     
+                     Expected format examples:
+                     - "get_objects(N+0)" - primitive with reference argument
+                     - "del(N+0)" - delete instruction with reference
+                     - "crop(N+0, N+1)" - primitive with multiple references
+                     - "new_grid(5, 3)" - primitive with integer constants
+                     - "get_index(N+0, N+1.x)" - primitive with attribute reference
+                     
+                     Arguments can be:
+                     - "N+X" for reference IDs (X is integer, refers to variable at index X in the stack)
+                     - Integer constants (0-9) as plain integers
+                     - Attribute references like "N+X.y", "N+X.x", or "N+X.c" for accessing object attributes
+        
+        Returns:
+            True if all reference IDs are valid (i.e., all references point to existing variables in the stack),
+            False otherwise
+        """
+        stack_counter = 1
+        
+        for prog_row in prog_list:
+            # Convert instruction string to token sequence
+            instr = ProgUtils.convert_instruction_string_to_token_seq(prog_row)
+            if instr is None:
+                return False
+            
+            # Extract all reference IDs from this instruction
+            arguments = ProgUtils.parse_arguments(instr)
+
+            for arg in arguments:
+                if len(arg) == 0:
+                    continue
+                
+                # Skip validation for param placeholders (e.g., "param1", "param2")
+                if isinstance(arg[0], str) and re.match(r'^param\d+$', arg[0]):
+                    continue
+                
+                # Check the first token (object reference or constant)
+                arg_val = arg[0] - ProgUtils.NUM_SPECIAL_TOKENS
+                
+                # If it's a reference (not a constant < 10)
+                if arg_val >= 10:
+                    ref_idx = arg_val - len(DSL.semantics)
+                    
+                    # Check if ref_idx is in valid range [0, stack_counter-1]
+                    if ref_idx < 0 or ref_idx >= stack_counter:
+                        return False
+            
+            # Update stack counter based on instruction type
+            # Check if this is a del instruction: SOS (0), primitive (51), SOP (1)
+            if len(instr) >= 3 and instr[0] == 0 and instr[1] == 51 and instr[2] == 1:
+                stack_counter -= 1
+                if stack_counter < 0:
+                    return False
+            else:
+                stack_counter += 1
+        
+        return True
+        
     @staticmethod
     def get_variable_type_code(var):
         """
