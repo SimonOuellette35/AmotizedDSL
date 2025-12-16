@@ -1199,12 +1199,25 @@ def colorSet(g: Union[GridObject, List[GridObject]]) -> Union[List[COLOR], List[
 
         return all_colors
 
-def keep(input_list: Union[List[T]], flags: List[bool]) -> List[T]:
+def keep(input_list: Union[List[T], List[List[T]]], flags: Union[List[bool], List[List[bool]]]) -> Union[List[T], List[List[T]]]:
     output = []
-    for idx in range(len(input_list)):
-        if flags[idx]:
-            output.append(input_list[idx])
-    return output
+
+    if isinstance(input_list[0], list):
+        output_list = []
+        for list_idx, inner_list in enumerate(input_list):
+            output_list.append([])
+            for idx in range(len(inner_list)):
+                if flags[list_idx][idx]:
+                    output_list[list_idx].append(inner_list[idx])
+
+        return output_list
+
+    else:
+        for idx in range(len(input_list)):
+            if flags[idx]:
+                output.append(input_list[idx])
+
+        return output
 
 def exclude(input_list: Union[List[T]], flags: List[bool]) -> List[T]:
     output = []
