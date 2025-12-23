@@ -221,11 +221,7 @@ class GridObject:
         return self.__str__()
 
 def inverse_lookup(idx):
-    for key, val in prim_indices.items():
-        if val == idx:
-            return key
-        
-    return None
+    return _inverse_lookup_cache.get(idx, None)
 
 def code_to_token_id(code):
     """
@@ -304,6 +300,9 @@ prim_indices = {
     '.ul_x': 55,     # Grid attribute
     '.ul_y': 56      # Grid attribute
 }
+
+# Build reverse lookup dictionary once at module load time for O(1) lookups
+_inverse_lookup_cache = {val: key for key, val in prim_indices.items()}
 
 text_to_code = {
     # Main functional primitives
