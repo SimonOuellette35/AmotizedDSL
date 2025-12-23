@@ -2,32 +2,45 @@ from typing import List, Tuple
 from AmotizedDSL.prog_utils import ProgUtils
 import torch
 from AmotizedDSL.delete_action import DeleteAction
+import numpy as np
 
 
-def resolve_arg(arg, states, primitives, verbose=True):
-    if isinstance(arg, Tuple):
+# Cache for pre-compiled programs (token_seq_list -> list of token tuples)
+_program_cache = {}
+
+
+def _compile_program(token_seq_list, primitives):
+    """Pre-compile a program from token sequences to token tuples."""
+    return [ProgUtils.convert_token_seq_to_token_tuple(seq, primitives) for seq in token_seq_list]
+
+
+def resolve_arg(arg, states, primitives, semantics_len, attr_cache=None, verbose=True):
+    if isinstance(arg, tuple):
         object_arg = arg[0]
         attr_arg = arg[1]
 
         # resolve the object reference
-        ref_idx = object_arg - len(primitives.semantics)
+        ref_idx = object_arg - semantics_len
         parent_obj = states[ref_idx]
 
         # resolve the attribute
         # handle pixel attributes differently than grid-level attributes
-        attr_name = primitives.inverse_lookup(attr_arg)
-        attr_func = primitives.semantics[attr_name]
+        if attr_cache is not None and attr_arg in attr_cache:
+            attr_name, attr_func = attr_cache[attr_arg]
+        else:
+            attr_name = primitives.inverse_lookup(attr_arg)
+            attr_func = primitives.semantics[attr_name]
+            if attr_cache is not None:
+                attr_cache[attr_arg] = (attr_name, attr_func)
 
         if attr_name in primitives.pixel_attributes:
-            if isinstance(parent_obj, List):
+            if isinstance(parent_obj, list):
                 pixels = []
                 for obj in parent_obj:
                     if isinstance(obj, primitives.GridObject):
-                        tmp_pixels = obj.pixels
+                        pixels.append(obj.pixels)
                     else:
-                        tmp_pixels = obj
-
-                    pixels.append(tmp_pixels)
+                        pixels.append(obj)
             else:
                 pixels = parent_obj.pixels
                 
@@ -40,9 +53,9 @@ def resolve_arg(arg, states, primitives, verbose=True):
     else:
         if arg < 10:
             return arg
-        elif arg >= len(primitives.semantics):
+        elif arg >= semantics_len:
             # resolve the reference
-            ref_idx = arg - len(primitives.semantics)
+            ref_idx = arg - semantics_len
             return states[ref_idx]
         else:
             print("==> BUG: this case shouldn't happen in resolve_arg.")
@@ -51,54 +64,70 @@ def resolve_arg(arg, states, primitives, verbose=True):
 def get_num_args(prim: int, DSL):
     return DSL.arg_counts[prim]
 
-def execute_step(step_token_seq, states, primitives, object_mask=None, verbose=True):
+def execute_step(step_token_seq, states, primitives, object_mask=None, prim_cache=None, attr_cache=None, verbose=True):
     '''
     @param step_token_seq: a tuple of tokens (integers) representing the step to execute.
     @param state: [k, num states, variable]
     @param object_mask: Optional object mask (2D numpy array or list) for get_objects/get_bg
+    @param prim_cache: Cache dict for primitive index -> (name, func) lookups
+    @param attr_cache: Cache dict for attribute index -> (name, func) lookups
 
     @return Returns the new intermediate state after executing the step.
     '''
 
-    # Step 1: resolve the main primitive
+    # Step 1: resolve the main primitive (with caching)
     prim_idx = step_token_seq[0]
-    prim_name = primitives.inverse_lookup(prim_idx)
-    prim_func = primitives.semantics[prim_name]
+    if prim_cache is not None and prim_idx in prim_cache:
+        prim_name, prim_func = prim_cache[prim_idx]
+    else:
+        prim_name = primitives.inverse_lookup(prim_idx)
+        prim_func = primitives.semantics[prim_name]
+        if prim_cache is not None:
+            prim_cache[prim_idx] = (prim_name, prim_func)
     
     # Step 2: parse the arguments (if any)
     token_args = step_token_seq[1]
+    
+    # Cache semantics length to avoid repeated lookups
+    semantics_len = len(primitives.semantics)
+    
+    # Pre-process object_mask once if needed
+    obj_mask = None
+    needs_obj_mask = (prim_name == 'get_objects' or prim_name == 'get_bg')
+    if needs_obj_mask and object_mask is not None:
+        if isinstance(object_mask, np.ndarray):
+            if object_mask.size > 0:
+                obj_mask = object_mask.tolist()
+        elif isinstance(object_mask, list) and len(object_mask) > 0:
+            obj_mask = object_mask
 
     result = []
     is_del = False
-    for example_idx, example in enumerate(states):
+    for example in states:
         resolved_args = []
         example_result = None
 
         if prim_name == 'switch':
             # 'switch' is a special statement, in that the number of arguments is dynamic, and
             # some logic must be used to determine which are the conditions and which are the operations.
-            otherwise = resolve_arg(token_args[-1], example, primitives, verbose)
-
             conditions_range = (len(token_args) - 1) // 2
-
-            conditions = []
-            for arg_idx in range(conditions_range):
-                tmp_arg = resolve_arg(token_args[arg_idx], example, primitives, verbose)
-                conditions.append(tmp_arg)
-
-            operations = []
-            for arg_idx in range(conditions_range, len(token_args) - 1):
-                tmp_arg = resolve_arg(token_args[arg_idx], example, primitives, verbose)
-                operations.append(tmp_arg)
-
+            
+            conditions = [resolve_arg(token_args[arg_idx], example, primitives, semantics_len, attr_cache, verbose) 
+                         for arg_idx in range(conditions_range)]
+            
+            operations = [resolve_arg(token_args[arg_idx], example, primitives, semantics_len, attr_cache, verbose) 
+                        for arg_idx in range(conditions_range, len(token_args) - 1)]
+            
+            otherwise = resolve_arg(token_args[-1], example, primitives, semantics_len, attr_cache, verbose)
+            
             resolved_args.append(conditions)
             resolved_args.append(operations)
             resolved_args.append(otherwise)
             example_result = prim_func(*resolved_args)
         elif prim_name == 'del':
-            result.append(DeleteAction(token_args[-1] - len(primitives.semantics)))
+            result.append(DeleteAction(token_args[-1] - semantics_len))
             is_del = True
-        elif prim_name == 'get_objects' or prim_name == 'get_bg':
+        elif needs_obj_mask:
             # Special handling for get_objects and get_bg: they need the grid and object_mask
             # The first argument should be the grid (N+0, which is example[0])
             if len(token_args) == 0:
@@ -106,41 +135,24 @@ def execute_step(step_token_seq, states, primitives, object_mask=None, verbose=T
                 grid = example[0]
             else:
                 # Resolve the grid argument
-                grid = resolve_arg(token_args[0], example, primitives, verbose)
+                grid = resolve_arg(token_args[0], example, primitives, semantics_len, attr_cache, verbose)
             
-            # Convert object_mask to the right format
-            # Treat empty list as None (no mask provided)
-            if object_mask is not None:
-                import numpy as np
-                if isinstance(object_mask, np.ndarray):
-                    if object_mask.size == 0:
-                        obj_mask = None
-                    else:
-                        obj_mask = object_mask.tolist()
-                elif isinstance(object_mask, list):
-                    if len(object_mask) == 0:
-                        obj_mask = None
-                    else:
-                        obj_mask = object_mask
-                else:
-                    obj_mask = None
-            else:
-                obj_mask = None
-            
+            # Use pre-processed obj_mask or create empty one if needed
             if obj_mask is None:
                 # If no object_mask provided, create an empty one (all zeros)
                 if isinstance(grid, primitives.GridObject):
                     grid_array = grid.to_grid()
-                    obj_mask = [[0] * grid_array.shape[1] for _ in range(grid_array.shape[0])]
+                    current_obj_mask = [[0] * grid_array.shape[1] for _ in range(grid_array.shape[0])]
                 else:
-                    obj_mask = [[0] * len(grid[0]) for _ in range(len(grid))]
+                    current_obj_mask = [[0] * len(grid[0]) for _ in range(len(grid))]
+            else:
+                current_obj_mask = obj_mask
             
             # Execute get_objects or get_bg with grid and object_mask
-            example_result = prim_func(grid, obj_mask)
+            example_result = prim_func(grid, current_obj_mask)
         else:
-            for arg in token_args:
-                tmp_arg = resolve_arg(arg, example, primitives, verbose)
-                resolved_args.append(tmp_arg)
+            resolved_args = [resolve_arg(arg, example, primitives, semantics_len, attr_cache, verbose) 
+                           for arg in token_args]
             example_result = prim_func(*resolved_args)
 
         if not is_del:
@@ -189,14 +201,25 @@ def execute(token_seq_list, state, primitives, object_mask=None):
 
     @return the output of the program, necessarily a Grid.
     '''
-    for step_idx, _ in enumerate(token_seq_list):
-        token_tuple = ProgUtils.convert_token_seq_to_token_tuple(token_seq_list[step_idx], primitives)
-
+    # Pre-compile program: convert all token sequences to token tuples once
+    # Use cache key based on program content (tuple of token sequence tuples for hashing)
+    cache_key = tuple(tuple(seq) for seq in token_seq_list)
+    if cache_key in _program_cache:
+        compiled_program = _program_cache[cache_key]
+    else:
+        compiled_program = _compile_program(token_seq_list, primitives)
+        _program_cache[cache_key] = compiled_program
+    
+    # Build lookup caches for primitives and attributes (reused across all steps)
+    prim_cache = {}
+    attr_cache = {}
+    
+    for token_tuple in compiled_program:
         # If end of program instruction step, return previous output.
         if token_tuple[0] == -1:
             return state[-1]
 
-        output = execute_step(token_tuple, state, primitives, object_mask)
+        output = execute_step(token_tuple, state, primitives, object_mask, prim_cache, attr_cache)
         
         if isinstance(output[0], DeleteAction):
             #print("==> Output: DeleteAction")
@@ -204,7 +227,7 @@ def execute(token_seq_list, state, primitives, object_mask=None):
 
             # Delete the element at idx_to_remove from the state
             for k_idx in range(len(state)):
-                state[k_idx] = [s for i, s in enumerate(state[k_idx]) if i != idx_to_remove]
+                del state[k_idx][idx_to_remove]
         else:
             #print("==> Output: ")
             for k_idx in range(len(state)):
@@ -214,10 +237,7 @@ def execute(token_seq_list, state, primitives, object_mask=None):
     if len(state[0]) > 1:
         print("==> WARNING: final state contains more than one values! Suggests missing memory management primitives!")
 
-    last_states = []
-    for k_idx in range(len(state)):
-        last_states.append(state[k_idx][-1])
-    return last_states
+    return [state[k_idx][-1] for k_idx in range(len(state))]
 
 def execute_instruction_step_batch(instr_step_batch, intermediate_state_batch, primitives):
     batch_outputs = []
@@ -264,7 +284,10 @@ def execute_instruction_step(instr_step, intermediate_state, primitives, verbose
             if verbose:
                 print("intermediate_state = ", intermediate_state)
 
-            prog_output = execute_step(token_tuple, intermediate_state, primitives)
+            # Build caches for this single-step execution
+            prim_cache = {}
+            attr_cache = {}
+            prog_output = execute_step(token_tuple, intermediate_state, primitives, None, prim_cache, attr_cache)
             if verbose:
                 print("Instruction step output = ", prog_output)
 
