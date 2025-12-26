@@ -1418,18 +1418,19 @@ def set_pixels(target_grid: Union[GridObject, List[GridObject]],
     # if the target coord is out-of-bounds, extend the target grid as needed (this is especially useful for tiling tasks)
     def set_single_grid_pixels(target_grid: GridObject, set_x: Union[DIM, List[DIM]], set_y: Union[DIM, List[DIM]], colors: Union[COLOR, List[COLOR]]) -> GridObject:
         
+        # Convert to numpy arrays early for better performance
         if isinstance(set_x, List):
-            set_x = [int(x) for x in set_x]
+            set_x = np.array(set_x, dtype=int)
         else:
             set_x = int(set_x)
 
         if isinstance(set_y, List):
-            set_y = [int(y) for y in set_y]
+            set_y = np.array(set_y, dtype=int)
         else:
             set_y = int(set_y)
 
         if isinstance(colors, List):
-            colors = [int(c) for c in colors]
+            colors = np.array(colors, dtype=int)
         else:
             colors = int(colors)
 
@@ -1437,24 +1438,31 @@ def set_pixels(target_grid: Union[GridObject, List[GridObject]],
         # for the integer cases.
         n = 0
         broadcasting = True
-        if isinstance(set_x, List):
+        if isinstance(set_x, np.ndarray):
             n = len(set_x)
-        elif isinstance(set_y, List):
+        elif isinstance(set_y, np.ndarray):
             n = len(set_y)
-        elif isinstance(colors, List):
+        elif isinstance(colors, np.ndarray):
             n = len(colors)
         else:
             broadcasting = False
 
         if broadcasting:
-            if isinstance(set_x, int) or isinstance(set_x, np.int64):
-                set_x = np.ones(n) * set_x
+            # Broadcast scalars to arrays
+            if isinstance(set_x, (int, np.integer)):
+                set_x = np.full(n, set_x, dtype=int)
+            elif not isinstance(set_x, np.ndarray):
+                set_x = np.array(set_x, dtype=int)
 
-            if isinstance(set_y, int) or isinstance(set_y, np.int64):
-                set_y = np.ones(n) * set_y
+            if isinstance(set_y, (int, np.integer)):
+                set_y = np.full(n, set_y, dtype=int)
+            elif not isinstance(set_y, np.ndarray):
+                set_y = np.array(set_y, dtype=int)
 
-            if isinstance(colors, int) or isinstance(colors, np.int64):
-                colors = np.ones(n) * colors
+            if isinstance(colors, (int, np.integer)):
+                colors = np.full(n, colors, dtype=int)
+            elif not isinstance(colors, np.ndarray):
+                colors = np.array(colors, dtype=int)
 
             # Handle negative indices for set_x and set_y
             min_x = int(np.min(set_x)) if len(set_x) > 0 else 0
@@ -1466,42 +1474,31 @@ def set_pixels(target_grid: Union[GridObject, List[GridObject]],
             # Adjust max_x and max_y to account for negative indices
             max_x = max(target_grid.width + shift_x, int(np.max(set_x)) + 1 + shift_x)
             max_y = max(target_grid.height + shift_y, int(np.max(set_y)) + 1 + shift_y)
-            new_cells = np.zeros((max_y, max_x))
+            new_cells = np.zeros((max_y, max_x), dtype=int)
 
-            # Copy the original grid into the new grid at the shifted position
-            for y in range(target_grid.height):
-                for x in range(target_grid.width):
-                    new_cells[y + shift_y][x + shift_x] = target_grid.cells[y][x]
+            # Get the original grid as numpy array once (much faster than accessing .cells property)
+            original_cells = target_grid.cells_as_numpy()
+            if original_cells.size > 0:
+                # Use numpy slicing for fast copy
+                new_cells[shift_y:shift_y + target_grid.height, shift_x:shift_x + target_grid.width] = original_cells
 
-            # Build indices: the set of x, y coords from set_x and set_y
-            if isinstance(set_x, (list, np.ndarray)) and isinstance(set_y, (list, np.ndarray)):
-                indices = list(range(n))
-            elif isinstance(set_x, (list, np.ndarray)):
-                indices = list(range(n))
-            elif isinstance(set_y, (list, np.ndarray)):
-                indices = list(range(n))
-            elif isinstance(colors, (list, np.ndarray)):
-                indices = list(range(n))
-            else:
-                indices = [0]
-
-            for idx in indices:
-                x_coord = int(set_x[idx]) + shift_x
-                y_coord = int(set_y[idx]) + shift_y
-                color = colors[idx]
-                new_cells[y_coord, x_coord] = color
+            # Vectorized coordinate calculation and assignment
+            x_coords = (set_x + shift_x).astype(int)
+            y_coords = (set_y + shift_y).astype(int)
+            new_cells[y_coords, x_coords] = colors
 
             return GridObject.from_grid(new_cells, target_grid.ul_x - shift_x, target_grid.ul_y - shift_y)
         else:
-            new_grid = copy.deepcopy(target_grid)
-
-            # Find the pixel in new_grid.pixels with .x == set_x and .y == set_y, and set its .c to colors
-            for pixel in new_grid.pixels:
+            # For single pixel case, create new pixels list with modified pixel (if found)
+            # This is faster than deepcopy + linear search since we avoid deepcopy overhead
+            new_pixels = []
+            for pixel in target_grid.pixels:
                 if pixel.x == set_x and pixel.y == set_y:
-                    pixel.c = colors
-                    break
-
-            return new_grid
+                    new_pixels.append(Pixel(pixel.x, pixel.y, colors))
+                else:
+                    new_pixels.append(Pixel(pixel.x, pixel.y, pixel.c))
+            
+            return GridObject(new_pixels, target_grid.ul_x, target_grid.ul_y)
 
     if isinstance(target_grid, List):
         output_grids = []
@@ -1528,9 +1525,15 @@ def set_pixels(target_grid: Union[GridObject, List[GridObject]],
         return output_grids
     elif isinstance(set_x, List) and isinstance(set_x[0], List):
         # In this case, there is one Grid instance, but we have a list of lists to set.
+        # Flatten all operations and batch them for better performance
+        all_x = []
+        all_y = []
+        all_colors = []
         for list_idx in range(len(set_x)):
-            target_grid = set_single_grid_pixels(target_grid, set_x[list_idx], set_y[list_idx], colors[list_idx])
-        return target_grid
+            all_x.extend(set_x[list_idx])
+            all_y.extend(set_y[list_idx])
+            all_colors.extend(colors[list_idx])
+        return set_single_grid_pixels(target_grid, all_x, all_y, all_colors)
     else:
         return set_single_grid_pixels(target_grid, set_x, set_y, colors)
 

@@ -1,4 +1,4 @@
-from typing import List, Tuple, Union
+from typing import List, Tuple
 import re
 import AmotizedDSL.DSL as DSL
 import inspect
@@ -46,6 +46,327 @@ class ProgUtils:
     TYPE_LIST_PIXEL = 7
     NUM_TYPE_TOKENS = 8  # Number of distinct type tokens
 
+
+    @staticmethod
+    def map_uuids_to_refIDs(uuid_instructions):
+        """Transform absolute UUIDs back into relative refIDs (N+X) for each step.
+        
+        This is the reverse operation of map_refIDs_to_uuids.
+        
+        Args:
+            uuid_instructions: List of instruction strings with UUIDs in format 
+                ['<uuid> = <instruction>(arguments)', 'del(<uuid>)', ...]
+        
+        Returns:
+            List of instruction strings with UUIDs replaced by refIDs relative to current stack size
+        """
+        # UUID pattern: 8-4-4-4-12 hexadecimal digits separated by hyphens
+        uuid_pattern = r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
+        
+        # Collect all output UUIDs (the ones on the left side of '=')
+        output_uuids = set()
+        all_uuids = set()
+        
+        for instr in uuid_instructions:
+            original_instr = instr.strip()
+            if not original_instr.startswith('del('):
+                # Non-del instruction: format is '<output_uuid> = <instruction>(arguments)'
+                match = re.match(r'^([^=]+)\s*=\s*(.+)$', original_instr)
+                if match:
+                    output_uuid_str = match.group(1).strip()
+                    output_uuid_match = re.match(uuid_pattern, output_uuid_str, re.IGNORECASE)
+                    if output_uuid_match:
+                        output_uuids.add(output_uuid_match.group(0))
+            
+            # Collect all UUIDs from this instruction
+            uuids = re.findall(uuid_pattern, original_instr, re.IGNORECASE)
+            all_uuids.update(uuids)
+        
+        if not all_uuids:
+            return uuid_instructions
+        
+        # The initial UUID is the one that appears in arguments but is never an output
+        # Find the first instruction and get the UUID from its arguments
+        initial_uuid = None
+        if uuid_instructions:
+            first_instr = uuid_instructions[0].strip()
+            if not first_instr.startswith('del('):
+                # Extract UUIDs from arguments (the part after '=')
+                match = re.match(r'^[^=]+\s*=\s*(.+)$', first_instr)
+                if match:
+                    instruction_part = match.group(1).strip()
+                    arg_uuids = re.findall(uuid_pattern, instruction_part, re.IGNORECASE)
+                    # The initial UUID is the one in arguments that is not an output
+                    for uuid_val in arg_uuids:
+                        if uuid_val not in output_uuids:
+                            initial_uuid = uuid_val
+                            break
+        
+        if initial_uuid is None:
+            # Fallback: use first UUID that's not an output
+            for uuid_val in all_uuids:
+                if uuid_val not in output_uuids:
+                    initial_uuid = uuid_val
+                    break
+        
+        if initial_uuid is None:
+            # Last resort: use first UUID encountered
+            first_instr = uuid_instructions[0] if uuid_instructions else ""
+            first_uuids = re.findall(uuid_pattern, first_instr, re.IGNORECASE)
+            if first_uuids:
+                initial_uuid = first_uuids[0]
+            else:
+                return uuid_instructions
+        
+        # Now simulate the stack state at each instruction
+        # Stack tracks which UUID is at each position
+        stack = [initial_uuid]  # Initial object
+        
+        transformed = []
+        
+        for i, instr in enumerate(uuid_instructions):
+            original_instr = instr.strip()
+            
+            # Check if this is a del instruction or an assignment format instruction
+            if original_instr.startswith('del('):
+                # Delete instruction: format is 'del(<uuid>)'
+                instr_copy = original_instr
+                
+                # Extract all UUIDs from this instruction
+                uuid_matches = list(re.finditer(uuid_pattern, instr_copy, re.IGNORECASE))
+                
+                # Replace each UUID with its refID based on current stack state
+                # Process in reverse order to maintain string positions
+                for match in reversed(uuid_matches):
+                    obj_uuid = match.group(0)
+                    try:
+                        idx = stack.index(obj_uuid)
+                        ref_id = f"N+{idx}"
+                        instr_copy = instr_copy[:match.start()] + ref_id + instr_copy[match.end():]
+                    except ValueError:
+                        # UUID not in current stack - this shouldn't happen if the input is valid
+                        # But handle gracefully by keeping the UUID
+                        pass
+                
+                transformed.append(instr_copy)
+                
+                # Update stack: remove the deleted UUID
+                if uuid_matches:
+                    del_uuid = uuid_matches[0].group(0)  # Get the UUID being deleted
+                    if del_uuid in stack:
+                        stack.remove(del_uuid)
+            else:
+                # Non-del instruction: format is '<output_uuid> = <instruction>(arguments)'
+                # Extract the output UUID (before the '=') and the instruction part (after the '=')
+                match = re.match(r'^([^=]+)\s*=\s*(.+)$', original_instr)
+                if match:
+                    output_uuid_str = match.group(1).strip()
+                    instruction_part = match.group(2).strip()
+                    
+                    # Extract the output UUID
+                    output_uuid_match = re.match(uuid_pattern, output_uuid_str, re.IGNORECASE)
+                    if output_uuid_match:
+                        output_uuid = output_uuid_match.group(0)
+                        
+                        # Extract all UUIDs from the instruction part (arguments)
+                        uuid_matches = list(re.finditer(uuid_pattern, instruction_part, re.IGNORECASE))
+                        
+                        # Replace each UUID in arguments with its refID based on current stack state
+                        instr_copy = instruction_part
+                        for match in reversed(uuid_matches):
+                            obj_uuid = match.group(0)
+                            try:
+                                idx = stack.index(obj_uuid)
+                                ref_id = f"N+{idx}"
+                                instr_copy = instr_copy[:match.start()] + ref_id + instr_copy[match.end():]
+                            except ValueError:
+                                # UUID not in current stack - this shouldn't happen if the input is valid
+                                # But handle gracefully by keeping the UUID
+                                pass
+                        
+                        transformed.append(instr_copy)
+                        
+                        # Update stack: add the output UUID
+                        stack.append(output_uuid)
+                    else:
+                        # Fallback: if format doesn't match, try old format
+                        instr_copy = original_instr
+                        uuid_matches = list(re.finditer(uuid_pattern, instr_copy, re.IGNORECASE))
+                        for match in reversed(uuid_matches):
+                            obj_uuid = match.group(0)
+                            try:
+                                idx = stack.index(obj_uuid)
+                                ref_id = f"N+{idx}"
+                                instr_copy = instr_copy[:match.start()] + ref_id + instr_copy[match.end():]
+                            except ValueError:
+                                pass
+                        transformed.append(instr_copy)
+                else:
+                    # Fallback: if format doesn't match, try old format
+                    instr_copy = original_instr
+                    uuid_matches = list(re.finditer(uuid_pattern, instr_copy, re.IGNORECASE))
+                    for match in reversed(uuid_matches):
+                        obj_uuid = match.group(0)
+                        try:
+                            idx = stack.index(obj_uuid)
+                            ref_id = f"N+{idx}"
+                            instr_copy = instr_copy[:match.start()] + ref_id + instr_copy[match.end():]
+                        except ValueError:
+                            pass
+                    transformed.append(instr_copy)
+        
+        return transformed
+
+    @staticmethod
+    def map_refIDs_to_uuids(prog_instructions):
+        """Transform relative refIDs (N+X) into absolute UUIDs for each unique object.
+        
+        Args:
+            prog_instructions: List of instruction strings like ["get_objects(N+0)", "del(N+0)", ...]
+        
+        Returns:
+            List of instruction strings in format '<uuid> = <instruction>(arguments)' for non-del instructions,
+            or 'del(<uuid>)' for del instructions, where refIDs are replaced by UUIDs
+        """
+        import uuid
+        
+        # Stack tracks which object UUID each position refers to
+        # Stack starts with one object (N+0)
+        stack = [str(uuid.uuid4())]  # Initial object gets a UUID
+        
+        # Map from refID (integer) to UUID for current stack state
+        # N+0 refers to the first object (stack[0]), N+1 to second object (stack[1]), etc.
+        def get_uuid_for_refid(ref_id):
+            """Get the UUID for a refID based on current stack state."""
+            if ref_id < len(stack):
+                return stack[ref_id]
+            return None
+        
+        transformed = []
+        
+        for instr in prog_instructions:
+            original_instr = instr.strip()
+            instr = original_instr
+            
+            # Extract all refIDs from this instruction
+            ref_matches = list(re.finditer(r'N\+(\d+)', instr))
+            
+            # Replace each refID with its UUID
+            # Process in reverse order to maintain string positions
+            for match in reversed(ref_matches):
+                ref_id = int(match.group(1))
+                obj_uuid = get_uuid_for_refid(ref_id)
+                if obj_uuid:
+                    instr = instr[:match.start()] + obj_uuid + instr[match.end():]
+            
+            # Update stack based on instruction type (check original instruction)
+            if original_instr.startswith('del('):
+                # Delete instruction: extract refID and remove that object from stack
+                del_match = re.search(r'del\(N\+(\d+)\)', original_instr)
+                if del_match:
+                    del_ref_id = int(del_match.group(1))
+                    if del_ref_id < len(stack):
+                        stack.pop(del_ref_id)
+                # For del instructions, output format is just 'del(<uuid>)'
+                transformed.append(instr)
+            else:
+                # Non-del instruction: creates new object, push to stack
+                output_uuid = str(uuid.uuid4())
+                stack.append(output_uuid)
+                # Format as '<output_uuid> = <instruction>(arguments)'
+                transformed.append(f"{output_uuid} = {instr}")
+        
+        return transformed
+
+    @staticmethod
+    def remove_dels(instructions):
+        """Remove all del instructions from the instructions program.
+        
+        Args:
+            instructions: List of instruction strings
+            
+        Returns:
+            List of instruction strings with all del instructions removed
+        """
+        return [instr for instr in instructions if not instr.strip().startswith('del(')]
+
+    @staticmethod
+    def auto_add_dels(uuid_instructions):
+        '''
+        Here, those are instructions where the redIDs are actually UUIDs. They are absolute references.
+
+        This function automatically adds a del statement once an object is no longer referenced for the rest of the
+        program.
+        '''
+        # UUID pattern: 8-4-4-4-12 hexadecimal digits separated by hyphens
+        uuid_pattern = r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
+        
+        # Track all UUIDs that appear and which ones have been deleted
+        all_uuids = set()
+        deleted_uuids = set()
+        
+        # Track the last occurrence index of each UUID
+        uuid_last_occurrence = {}
+        
+        # First pass: find the last occurrence of each UUID and track deleted UUIDs
+        for i, instr in enumerate(uuid_instructions):
+            # Track deleted UUIDs
+            if instr.strip().startswith('del('):
+                deleted_uuids_in_instr = re.findall(uuid_pattern, instr, re.IGNORECASE)
+                deleted_uuids.update(deleted_uuids_in_instr)
+                continue
+            
+            # Extract all UUIDs from this instruction
+            uuids = re.findall(uuid_pattern, instr, re.IGNORECASE)
+            all_uuids.update(uuids)
+            for uuid in uuids:
+                uuid_last_occurrence[uuid] = i
+        
+        # Extract output UUID from the last instruction (if it exists)
+        last_output_uuid = None
+        if uuid_instructions:
+            last_instr = uuid_instructions[-1].strip()
+            if not last_instr.startswith('del('):
+                # Extract output UUID (the UUID before '=')
+                match = re.match(r'^([^=]+)\s*=\s*(.+)$', last_instr)
+                if match:
+                    output_uuid_str = match.group(1).strip()
+                    output_uuid_match = re.match(uuid_pattern, output_uuid_str, re.IGNORECASE)
+                    if output_uuid_match:
+                        last_output_uuid = output_uuid_match.group(0)
+        
+        # Second pass: insert del statements after last occurrences
+        result = []
+        dels_to_insert = {}  # Maps index -> list of UUIDs to delete at that position
+        
+        for uuid, last_idx in uuid_last_occurrence.items():
+            # Insert del after the last instruction that references this UUID
+            # Only if there are more instructions after it
+            if last_idx < len(uuid_instructions) - 1:
+                # Store at last_idx so we insert after that instruction
+                if last_idx not in dels_to_insert:
+                    dels_to_insert[last_idx] = []
+                dels_to_insert[last_idx].append(uuid)
+        
+        # Build result with del statements inserted
+        for i, instr in enumerate(uuid_instructions):
+            result.append(instr)
+            
+            # Insert del statements after this instruction if needed
+            if i in dels_to_insert:
+                for uuid in dels_to_insert[i]:
+                    result.append(f"del({uuid})")
+                    deleted_uuids.add(uuid)  # Track UUIDs deleted by inserted del statements
+        
+        # Add del statements at the end for all non-deleted UUIDs except the last output
+        remaining_uuids = all_uuids - deleted_uuids
+        if last_output_uuid:
+            remaining_uuids.discard(last_output_uuid)
+        
+        for uuid in sorted(remaining_uuids):
+            result.append(f"del({uuid})")
+        
+        return result
 
     @staticmethod
     def convert_instruction_string_to_token_seq(instr_str):
