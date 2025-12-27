@@ -2,7 +2,109 @@ from AmotizedDSL.prog_utils import ProgUtils
 import AmotizedDSL.DSL as DSL
 import random
 import uuid
+import numpy as np
 from unittest.mock import patch
+
+
+def test_remove_unused_instructions():
+    unused_instrs = [
+        '23b8c1e9-3924-46de-beb1-3b9046685257 = get_objects(bdd640fb-0667-4ad1-9c80-317fa3b1799d)', 
+        'bd9c66b3-ad3c-4d6d-9a3d-1fa7bc8960a9 = get_bg(bdd640fb-0667-4ad1-9c80-317fa3b1799d)', 
+        '972a8469-1641-4f82-8b9d-2434e465e150 = neighbours8(23b8c1e9-3924-46de-beb1-3b9046685257)', 
+        '17fc695a-07a0-4a6e-8822-e8f36c031199 = neighbours4(23b8c1e9-3924-46de-beb1-3b9046685257)', 
+        '9a1de644-815e-46d1-bb8f-aa1837f8a88b = set_difference(972a8469-1641-4f82-8b9d-2434e465e150, 17fc695a-07a0-4a6e-8822-e8f36c031199)', 
+        'b74d0fb1-32e7-4629-8fad-c1a606cb0fb3 = count_items(9a1de644-815e-46d1-bb8f-aa1837f8a88b)', 
+        '6b65a6a4-8b81-48f6-b38a-088ca65ed389 = count_items(17fc695a-07a0-4a6e-8822-e8f36c031199)', 
+        '47378190-96da-4dac-b2ff-5d2a386ecbe0 = equal(b74d0fb1-32e7-4629-8fad-c1a606cb0fb3, 1)', 
+        'c241330b-01a9-471f-9e8a-774bcf36d58b = equal(b74d0fb1-32e7-4629-8fad-c1a606cb0fb3, 3)', 
+        '6c307511-b2b9-437a-a8df-6ec4ce4a2bbd = equal(6b65a999-8b81-48f6-b38a-088ca65ed389, 4)', 
+        '371ecd7b-27cd-4130-8722-9389571aa876 = and(c241330b-01a9-471f-9e8a-774bcf36d58b, 6c307511-b2b9-437a-a8df-6ec4ce4a2bbd)', 
+        '1a2a73ed-562b-4f79-8374-59eef50bea63 = or(47378190-96da-4dac-b2ff-5d2a386ecbe0, 371ecd7b-27cd-4130-8722-9389571aa876)', 
+        '5be6128e-18c2-4797-a142-ea7d17be3111 = switch(1a2a73ed-562b-4f79-8374-59eef50bea63, "param1", 23b8c1e9-3924-46de-beb1-3b9046685257.c)', 
+        '43b7a3a6-9a8d-4a03-980d-7b71d8f56413 = set_color(23b86666-3924-46de-beb1-3b9046685257, 5be6128e-18c2-4797-a142-ea7d17be3111)', 
+        '759cde66-bacf-43d0-8b1f-9163ce9ff57f = rebuild_grid(bd9c66b3-ad3c-4d6d-9a3d-1fa7bc8960a9, 43b7a3a6-9a8d-4a03-980d-7b71d8f56413)'
+    ]
+
+    cleaned_prog = ProgUtils.remove_unused_instructions(unused_instrs)
+
+    expected_cleaned_prog = [
+        '23b8c1e9-3924-46de-beb1-3b9046685257 = get_objects(bdd640fb-0667-4ad1-9c80-317fa3b1799d)',
+        'bd9c66b3-ad3c-4d6d-9a3d-1fa7bc8960a9 = get_bg(bdd640fb-0667-4ad1-9c80-317fa3b1799d)',
+        '972a8469-1641-4f82-8b9d-2434e465e150 = neighbours8(23b8c1e9-3924-46de-beb1-3b9046685257)',
+        '17fc695a-07a0-4a6e-8822-e8f36c031199 = neighbours4(23b8c1e9-3924-46de-beb1-3b9046685257)',
+        '9a1de644-815e-46d1-bb8f-aa1837f8a88b = set_difference(972a8469-1641-4f82-8b9d-2434e465e150, 17fc695a-07a0-4a6e-8822-e8f36c031199)',
+        'b74d0fb1-32e7-4629-8fad-c1a606cb0fb3 = count_items(9a1de644-815e-46d1-bb8f-aa1837f8a88b)',
+        '47378190-96da-4dac-b2ff-5d2a386ecbe0 = equal(b74d0fb1-32e7-4629-8fad-c1a606cb0fb3, 1)',
+        'c241330b-01a9-471f-9e8a-774bcf36d58b = equal(b74d0fb1-32e7-4629-8fad-c1a606cb0fb3, 3)',
+        '6c307511-b2b9-437a-a8df-6ec4ce4a2bbd = equal(6b65a999-8b81-48f6-b38a-088ca65ed389, 4)',
+        '371ecd7b-27cd-4130-8722-9389571aa876 = and(c241330b-01a9-471f-9e8a-774bcf36d58b, 6c307511-b2b9-437a-a8df-6ec4ce4a2bbd)',
+        '1a2a73ed-562b-4f79-8374-59eef50bea63 = or(47378190-96da-4dac-b2ff-5d2a386ecbe0, 371ecd7b-27cd-4130-8722-9389571aa876)',
+        '5be6128e-18c2-4797-a142-ea7d17be3111 = switch(1a2a73ed-562b-4f79-8374-59eef50bea63, "param1", 23b8c1e9-3924-46de-beb1-3b9046685257.c)',
+        '43b7a3a6-9a8d-4a03-980d-7b71d8f56413 = set_color(23b86666-3924-46de-beb1-3b9046685257, 5be6128e-18c2-4797-a142-ea7d17be3111)'
+    ]
+
+    assert cleaned_prog == expected_cleaned_prog, "cleaned_prog does not match expected_cleaned_prog"
+
+def test_reassign_invalid_uuids():
+    invalid_uuid_refs = [
+        '23b8c1e9-3924-46de-beb1-3b9046685257 = get_objects(bdd640fb-0667-4ad1-9c80-317fa3b1799d)', 
+        'bd9c66b3-ad3c-4d6d-9a3d-1fa7bc8960a9 = get_bg(bdd640fb-0667-4ad1-9c80-317fa3b1799d)', 
+        '972a8469-1641-4f82-8b9d-2434e465e150 = neighbours8(23b8c1e9-3924-46de-beb1-3b9046685257)', 
+        '17fc695a-07a0-4a6e-8822-e8f36c031199 = neighbours4(23b8c1e9-3924-46de-beb1-3b9046685257)', 
+        '9a1de644-815e-46d1-bb8f-aa1837f8a88b = set_difference(972a8469-1641-4f82-8b9d-2434e465e150, 17fc695a-07a0-4a6e-8822-e8f36c031199)', 
+        'b74d0fb1-32e7-4629-8fad-c1a606cb0fb3 = count_items(9a1de644-815e-46d1-bb8f-aa1837f8a88b)', 
+        '6b65a6a4-8b81-48f6-b38a-088ca65ed389 = count_items(17fc695a-07a0-4a6e-8822-e8f36c031199)', 
+        '47378190-96da-4dac-b2ff-5d2a386ecbe0 = equal(b74d0fb1-32e7-4629-8fad-c1a606cb0fb3, 1)', 
+        'c241330b-01a9-471f-9e8a-774bcf36d58b = equal(b74d0fb1-32e7-4629-8fad-c1a606cb0fb3, 3)', 
+        '6c307511-b2b9-437a-a8df-6ec4ce4a2bbd = equal(6b65a999-8b81-48f6-b38a-088ca65ed389, 4)', 
+        '371ecd7b-27cd-4130-8722-9389571aa876 = and(c241330b-01a9-471f-9e8a-774bcf36d58b, 6c307511-b2b9-437a-a8df-6ec4ce4a2bbd)', 
+        '1a2a73ed-562b-4f79-8374-59eef50bea63 = or(47378190-96da-4dac-b2ff-5d2a386ecbe0, 371ecd7b-27cd-4130-8722-9389571aa876)', 
+        '5be6128e-18c2-4797-a142-ea7d17be3111 = switch(1a2a73ed-562b-4f79-8374-59eef50bea63, "param1", 23b8c1e9-3924-46de-beb1-3b9046685257.c)', 
+        '43b7a3a6-9a8d-4a03-980d-7b71d8f56413 = set_color(23b86666-3924-46de-beb1-3b9046685257, 5be6128e-18c2-4797-a142-ea7d17be3111)', 
+        '759cde66-bacf-43d0-8b1f-9163ce9ff57f = rebuild_grid(bd9c66b3-ad3c-4d6d-9a3d-1fa7bc8960a9, 43b7a3a6-9a8d-4a03-980d-7b71d8f56413)'
+    ]
+
+    # Set deterministic seeds for all random number generators
+    np.random.seed(42)
+    random.seed(42)
+    
+    # Patch np.random.choice to sort list inputs for deterministic selection
+    # This ensures that when list(valid_uuids) is passed, it's sorted first
+    original_choice = np.random.choice
+    def deterministic_choice(a, **kwargs):
+        # Sort list inputs to ensure deterministic order (handles list(valid_uuids) case)
+        if isinstance(a, list):
+            a = sorted(a)
+        elif isinstance(a, (set, frozenset)):
+            a = sorted(a)
+        return original_choice(a, **kwargs)
+    
+    with patch('AmotizedDSL.prog_utils.np.random.choice', side_effect=deterministic_choice):
+        fixed_uuid_refs = ProgUtils.reassign_invalid_uuids(invalid_uuid_refs, 7)
+
+    expected_uuid_refs = [
+        '23b8c1e9-3924-46de-beb1-3b9046685257 = get_objects(bdd640fb-0667-4ad1-9c80-317fa3b1799d)',
+        'bd9c66b3-ad3c-4d6d-9a3d-1fa7bc8960a9 = get_bg(bdd640fb-0667-4ad1-9c80-317fa3b1799d)',
+        '972a8469-1641-4f82-8b9d-2434e465e150 = neighbours8(23b8c1e9-3924-46de-beb1-3b9046685257)',
+        '17fc695a-07a0-4a6e-8822-e8f36c031199 = neighbours4(23b8c1e9-3924-46de-beb1-3b9046685257)',
+        '9a1de644-815e-46d1-bb8f-aa1837f8a88b = set_difference(972a8469-1641-4f82-8b9d-2434e465e150, 17fc695a-07a0-4a6e-8822-e8f36c031199)',
+        'b74d0fb1-32e7-4629-8fad-c1a606cb0fb3 = count_items(9a1de644-815e-46d1-bb8f-aa1837f8a88b)',
+        '6b65a6a4-8b81-48f6-b38a-088ca65ed389 = count_items(17fc695a-07a0-4a6e-8822-e8f36c031199)',
+        '47378190-96da-4dac-b2ff-5d2a386ecbe0 = equal(b74d0fb1-32e7-4629-8fad-c1a606cb0fb3, 1)',
+        'c241330b-01a9-471f-9e8a-774bcf36d58b = equal(b74d0fb1-32e7-4629-8fad-c1a606cb0fb3, 3)',
+        '6c307511-b2b9-437a-a8df-6ec4ce4a2bbd = equal(b74d0fb1-32e7-4629-8fad-c1a606cb0fb3, 4)',
+        '371ecd7b-27cd-4130-8722-9389571aa876 = and(c241330b-01a9-471f-9e8a-774bcf36d58b, 6c307511-b2b9-437a-a8df-6ec4ce4a2bbd)',
+        '1a2a73ed-562b-4f79-8374-59eef50bea63 = or(47378190-96da-4dac-b2ff-5d2a386ecbe0, 371ecd7b-27cd-4130-8722-9389571aa876)',
+        '5be6128e-18c2-4797-a142-ea7d17be3111 = switch(1a2a73ed-562b-4f79-8374-59eef50bea63, "param1", 23b8c1e9-3924-46de-beb1-3b9046685257.c)',
+        '43b7a3a6-9a8d-4a03-980d-7b71d8f56413 = set_color(371ecd7b-27cd-4130-8722-9389571aa876, 5be6128e-18c2-4797-a142-ea7d17be3111)',
+        '759cde66-bacf-43d0-8b1f-9163ce9ff57f = rebuild_grid(bd9c66b3-ad3c-4d6d-9a3d-1fa7bc8960a9, 43b7a3a6-9a8d-4a03-980d-7b71d8f56413)'
+    ]
+
+    assert fixed_uuid_refs == expected_uuid_refs, "fixed_uuid_refs does not match expected_uuid_refs"
+    
+    # Assert that the only two rows that are different between expected_uuid_refs and invalid_uuid_refs are rows 9 and 13
+    different_rows = [i for i in range(len(fixed_uuid_refs)) if fixed_uuid_refs[i] != invalid_uuid_refs[i]]
+    assert set(different_rows) == {9, 13}, f"Expected only rows 9 and 13 to differ, but found differences at rows: {different_rows}"
 
 
 def test_map_refIDs_to_uuids():

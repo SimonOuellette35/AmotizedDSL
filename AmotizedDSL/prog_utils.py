@@ -46,6 +46,255 @@ class ProgUtils:
     TYPE_LIST_PIXEL = 7
     NUM_TYPE_TOKENS = 8  # Number of distinct type tokens
 
+    @staticmethod
+    def static_infer_result_type(primitive_name):
+        """Get the return type of a primitive by method name.
+        
+        Args:
+            primitive_name: Name of the primitive function
+            
+        Returns:
+            1 if return type contains "GridObject"
+            2 if return type contains int
+            3 if return type contains bool
+            4 if return type contains "Pixel"
+            5 otherwise
+        """
+        if primitive_name not in DSL.semantics:
+            return 5
+        
+        prim_func = DSL.semantics[primitive_name]
+        
+        # Handle non-callable primitives (e.g., integer constants)
+        if not callable(prim_func):
+            # Integer constants return int
+            if isinstance(prim_func, int):
+                return 2
+            return 5
+        
+        # Get return annotation
+        try:
+            sig = inspect.signature(prim_func)
+            return_annotation = sig.return_annotation
+        except (ValueError, TypeError):
+            # If signature can't be obtained, return default
+            return 5
+        
+        # Convert annotation to string
+        if return_annotation == inspect.Signature.empty:
+            return 5
+        
+        return_type_str = str(return_annotation)
+        
+        # Check in priority order: GridObject, int, bool, Pixel
+        if 'GridObject' in return_type_str:
+            return 1
+        elif 'int' in return_type_str or 'COLOR' in return_type_str or 'DIM' in return_type_str:
+            return 2
+        elif 'bool' in return_type_str:
+            return 3
+        elif 'Pixel' in return_type_str:
+            return 4
+        else:
+            return 5
+
+    @staticmethod
+    def remove_unused_instructions(crossover_instrs):
+        """Remove all instructions whose generated UUID is not used at all in the program.
+        
+        Args:
+            crossover_instrs: List of instruction strings in format 
+                '<uuid> = <instruction>(arguments)' or 'del(<uuid>)'
+        
+        Returns:
+            Modified list of instruction strings with unused instructions removed
+        """
+        uuid_pattern = r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
+        
+        # Collect all UUIDs that are used (appear in arguments or del statements)
+        used_uuids = set()
+        
+        for instr in crossover_instrs:
+            instr_stripped = instr.strip()
+            if instr_stripped.startswith('del('):
+                # For del instructions, the UUID in del() is being used
+                uuid_matches = re.findall(uuid_pattern, instr_stripped, re.IGNORECASE)
+                used_uuids.update(uuid_matches)
+            else:
+                # For non-del instructions, extract UUIDs from arguments (the part after '=')
+                match = re.match(r'^([^=]+)\s*=\s*(.+)$', instr_stripped)
+                if match:
+                    instruction_part = match.group(2).strip()
+                    # Extract all UUIDs from arguments
+                    uuid_matches = re.findall(uuid_pattern, instruction_part, re.IGNORECASE)
+                    used_uuids.update(uuid_matches)
+        
+        # Filter out instructions whose output UUID is never used
+        result = []
+        for instr in crossover_instrs:
+            instr_stripped = instr.strip()
+            if instr_stripped.startswith('del('):
+                # Keep all del instructions
+                result.append(instr)
+            else:
+                # For non-del instructions, check if output UUID is used
+                match = re.match(r'^([^=]+)\s*=\s*(.+)$', instr_stripped)
+                if match:
+                    output_uuid_str = match.group(1).strip()
+                    output_uuid_match = re.match(uuid_pattern, output_uuid_str, re.IGNORECASE)
+                    if output_uuid_match:
+                        output_uuid = output_uuid_match.group(0)
+                        # Only keep if the output UUID is used somewhere
+                        if output_uuid in used_uuids:
+                            result.append(instr)
+                    else:
+                        # If no valid output UUID, keep the instruction
+                        result.append(instr)
+                else:
+                    # If format doesn't match, keep the instruction
+                    result.append(instr)
+        
+        return result
+
+
+    @staticmethod
+    def reassign_invalid_uuids(crossover_instrs, range_start):
+        """Reassign invalid UUIDs in crossover instructions.
+        
+        Goes through program instructions starting from range_start. For each instruction,
+        if it has arguments that refer to a UUID that does not exist (i.e. there is no 
+        previous instruction that generates that UUID), change it to a UUID that actually 
+        exists (randomly selected among the previously generated UUIDs).
+        
+        When replacing a UUID, if the replacement UUID's primitive returns GridObject (type 1),
+        randomly either leave the UUID as is, or append one of the possible attributes (like .x, .c, .max_y, etc.).
+        
+        Args:
+            crossover_instrs: List of instruction strings in format 
+                '<uuid> = <instruction>(arguments)' or 'del(<uuid>)'
+            range_start: Index to start processing from
+        
+        Returns:
+            Modified list of instruction strings with invalid UUIDs replaced
+        """
+        uuid_pattern = r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
+        
+        # Collect all UUIDs generated by instructions before range_start and map them to their primitive names
+        valid_uuids = set()
+        uuid_to_primitive = {}  # Maps UUID to the primitive name that generated it
+        
+        for i in range(range_start):
+            instr = crossover_instrs[i].strip()
+            if not instr.startswith('del('):
+                # Extract output UUID (the UUID before '=') and primitive name
+                match = re.match(r'^([^=]+)\s*=\s*(.+)$', instr)
+                if match:
+                    output_uuid_str = match.group(1).strip()
+                    output_uuid_match = re.match(uuid_pattern, output_uuid_str, re.IGNORECASE)
+                    if output_uuid_match:
+                        output_uuid = output_uuid_match.group(0)
+                        valid_uuids.add(output_uuid)
+                        
+                        # Extract primitive name from instruction part (e.g., "get_objects(...)" -> "get_objects")
+                        instruction_part = match.group(2).strip()
+                        prim_match = re.match(r'^(\w+)\(', instruction_part)
+                        if prim_match:
+                            uuid_to_primitive[output_uuid] = prim_match.group(1)
+        
+        # Get all available attributes from DSL (names starting with '.')
+        available_attributes = [attr for attr in DSL.prim_indices.keys() if attr.startswith('.')]
+        
+        # If no valid UUIDs exist, we can't reassign anything
+        if not valid_uuids:
+            return crossover_instrs
+        
+        def get_replacement_uuid_with_attr():
+            """Get a replacement UUID, potentially with an attribute appended if it's a GridObject."""
+            replacement = np.random.choice(list(valid_uuids))
+            
+            # Check if the replacement UUID's primitive returns GridObject
+            if replacement in uuid_to_primitive:
+                prim_name = uuid_to_primitive[replacement]
+                return_type = ProgUtils.static_infer_result_type(prim_name)
+                
+                if return_type == 1:  # GridObject
+                    # Randomly decide whether to append an attribute
+                    if np.random.random() < 0.5 and available_attributes:
+                        # Append a random attribute
+                        attr = np.random.choice(available_attributes)
+                        return replacement + attr
+                    # Otherwise leave as is
+                    return replacement
+            return replacement
+        
+        result = list(crossover_instrs)
+        
+        # Process instructions from range_start onwards
+        for i in range(range_start, len(crossover_instrs)):
+            instr = result[i].strip()
+            
+            if instr.startswith('del('):
+                # For del instructions, extract UUID from del(<uuid>)
+                uuid_matches = list(re.finditer(uuid_pattern, instr, re.IGNORECASE))
+                instr_copy = instr
+                for match in reversed(uuid_matches):
+                    uuid_val = match.group(0)
+                    if uuid_val not in valid_uuids:
+                        # Replace with random valid UUID (no attributes for del instructions)
+                        replacement = np.random.choice(list(valid_uuids))
+                        instr_copy = instr_copy[:match.start()] + replacement + instr_copy[match.end():]
+                result[i] = instr_copy
+            else:
+                # Non-del instruction: format is '<output_uuid> = <instruction>(arguments)'
+                match = re.match(r'^([^=]+)\s*=\s*(.+)$', instr)
+                if match:
+                    output_uuid_str = match.group(1).strip()
+                    instruction_part = match.group(2).strip()
+                    
+                    # Extract output UUID
+                    output_uuid_match = re.match(uuid_pattern, output_uuid_str, re.IGNORECASE)
+                    output_uuid = None
+                    if output_uuid_match:
+                        output_uuid = output_uuid_match.group(0)
+                    
+                    # Extract primitive name for this instruction
+                    prim_match = re.match(r'^(\w+)\(', instruction_part)
+                    prim_name = prim_match.group(1) if prim_match else None
+                    
+                    # Extract all UUIDs from arguments (the instruction part)
+                    uuid_matches = list(re.finditer(uuid_pattern, instruction_part, re.IGNORECASE))
+                    
+                    # Replace invalid UUIDs in arguments
+                    instr_copy = instruction_part
+                    for match in reversed(uuid_matches):
+                        uuid_val = match.group(0)
+                        if uuid_val not in valid_uuids:
+                            # Get replacement UUID, potentially with attribute
+                            replacement = get_replacement_uuid_with_attr()
+                            instr_copy = instr_copy[:match.start()] + replacement + instr_copy[match.end():]
+                    
+                    # Reconstruct the instruction
+                    if output_uuid:
+                        result[i] = f"{output_uuid} = {instr_copy}"
+                        # Add output UUID to valid set for subsequent instructions
+                        valid_uuids.add(output_uuid)
+                        # Store primitive name for this UUID
+                        if prim_name:
+                            uuid_to_primitive[output_uuid] = prim_name
+                    else:
+                        result[i] = f"{output_uuid_str} = {instr_copy}"
+                else:
+                    # Fallback: if format doesn't match, try to replace UUIDs anyway
+                    uuid_matches = list(re.finditer(uuid_pattern, instr, re.IGNORECASE))
+                    instr_copy = instr
+                    for match in reversed(uuid_matches):
+                        uuid_val = match.group(0)
+                        if uuid_val not in valid_uuids:
+                            replacement = get_replacement_uuid_with_attr()
+                            instr_copy = instr_copy[:match.start()] + replacement + instr_copy[match.end():]
+                    result[i] = instr_copy
+        
+        return result
 
     @staticmethod
     def map_uuids_to_refIDs(uuid_instructions):
@@ -563,7 +812,7 @@ class ProgUtils:
         Convert a variable from intermediate state to an integer type code.
         
         Args:
-            var: A variable from intermediate state (Grid, GridObject, int, bool, Pixel, or list)
+            var: A variable from intermediate state (GridObject, int, bool, Pixel, or list)
             
         Returns:
             Integer code representing the variable type
