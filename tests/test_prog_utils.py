@@ -21,7 +21,7 @@ def test_remove_unused_instructions():
         '371ecd7b-27cd-4130-8722-9389571aa876 = and(c241330b-01a9-471f-9e8a-774bcf36d58b, 6c307511-b2b9-437a-a8df-6ec4ce4a2bbd)', 
         '1a2a73ed-562b-4f79-8374-59eef50bea63 = or(47378190-96da-4dac-b2ff-5d2a386ecbe0, 371ecd7b-27cd-4130-8722-9389571aa876)', 
         '5be6128e-18c2-4797-a142-ea7d17be3111 = switch(1a2a73ed-562b-4f79-8374-59eef50bea63, "param1", 23b8c1e9-3924-46de-beb1-3b9046685257.c)', 
-        '43b7a3a6-9a8d-4a03-980d-7b71d8f56413 = set_color(23b86666-3924-46de-beb1-3b9046685257, 5be6128e-18c2-4797-a142-ea7d17be3111)', 
+        '43b7a3a6-9a8d-4a03-980d-7b71d8f56413 = set_color(23b86666-3924-46de-beb1-3b9046685257, 5be99999-18c2-4797-a142-ea7d17be3111)', 
         '759cde66-bacf-43d0-8b1f-9163ce9ff57f = rebuild_grid(bd9c66b3-ad3c-4d6d-9a3d-1fa7bc8960a9, 43b7a3a6-9a8d-4a03-980d-7b71d8f56413)'
     ]
 
@@ -39,8 +39,8 @@ def test_remove_unused_instructions():
         '6c307511-b2b9-437a-a8df-6ec4ce4a2bbd = equal(6b65a999-8b81-48f6-b38a-088ca65ed389, 4)',
         '371ecd7b-27cd-4130-8722-9389571aa876 = and(c241330b-01a9-471f-9e8a-774bcf36d58b, 6c307511-b2b9-437a-a8df-6ec4ce4a2bbd)',
         '1a2a73ed-562b-4f79-8374-59eef50bea63 = or(47378190-96da-4dac-b2ff-5d2a386ecbe0, 371ecd7b-27cd-4130-8722-9389571aa876)',
-        '5be6128e-18c2-4797-a142-ea7d17be3111 = switch(1a2a73ed-562b-4f79-8374-59eef50bea63, "param1", 23b8c1e9-3924-46de-beb1-3b9046685257.c)',
-        '43b7a3a6-9a8d-4a03-980d-7b71d8f56413 = set_color(23b86666-3924-46de-beb1-3b9046685257, 5be6128e-18c2-4797-a142-ea7d17be3111)'
+        '43b7a3a6-9a8d-4a03-980d-7b71d8f56413 = set_color(23b86666-3924-46de-beb1-3b9046685257, 5be99999-18c2-4797-a142-ea7d17be3111)',
+        '759cde66-bacf-43d0-8b1f-9163ce9ff57f = rebuild_grid(bd9c66b3-ad3c-4d6d-9a3d-1fa7bc8960a9, 43b7a3a6-9a8d-4a03-980d-7b71d8f56413)'
     ]
 
     assert cleaned_prog == expected_cleaned_prog, "cleaned_prog does not match expected_cleaned_prog"

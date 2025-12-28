@@ -111,6 +111,13 @@ class ProgUtils:
         """
         uuid_pattern = r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
         
+        # Find the index of the last non-del instruction
+        last_non_del_idx = None
+        for i in range(len(crossover_instrs) - 1, -1, -1):
+            if not crossover_instrs[i].strip().startswith('del('):
+                last_non_del_idx = i
+                break
+        
         # Collect all UUIDs that are used (appear in arguments or del statements)
         used_uuids = set()
         
@@ -129,30 +136,45 @@ class ProgUtils:
                     uuid_matches = re.findall(uuid_pattern, instruction_part, re.IGNORECASE)
                     used_uuids.update(uuid_matches)
         
+        # If there's a last non-del instruction, mark its output UUID as used
+        if last_non_del_idx is not None:
+            last_instr = crossover_instrs[last_non_del_idx].strip()
+            if not last_instr.startswith('del('):
+                match = re.match(r'^([^=]+)\s*=\s*(.+)$', last_instr)
+                if match:
+                    output_uuid_str = match.group(1).strip()
+                    output_uuid_match = re.match(uuid_pattern, output_uuid_str, re.IGNORECASE)
+                    if output_uuid_match:
+                        used_uuids.add(output_uuid_match.group(0))
+        
         # Filter out instructions whose output UUID is never used
         result = []
-        for instr in crossover_instrs:
+        for i, instr in enumerate(crossover_instrs):
             instr_stripped = instr.strip()
             if instr_stripped.startswith('del('):
                 # Keep all del instructions
                 result.append(instr)
             else:
                 # For non-del instructions, check if output UUID is used
-                match = re.match(r'^([^=]+)\s*=\s*(.+)$', instr_stripped)
-                if match:
-                    output_uuid_str = match.group(1).strip()
-                    output_uuid_match = re.match(uuid_pattern, output_uuid_str, re.IGNORECASE)
-                    if output_uuid_match:
-                        output_uuid = output_uuid_match.group(0)
-                        # Only keep if the output UUID is used somewhere
-                        if output_uuid in used_uuids:
+                # Always keep the last non-del instruction
+                if i == last_non_del_idx:
+                    result.append(instr)
+                else:
+                    match = re.match(r'^([^=]+)\s*=\s*(.+)$', instr_stripped)
+                    if match:
+                        output_uuid_str = match.group(1).strip()
+                        output_uuid_match = re.match(uuid_pattern, output_uuid_str, re.IGNORECASE)
+                        if output_uuid_match:
+                            output_uuid = output_uuid_match.group(0)
+                            # Only keep if the output UUID is used somewhere
+                            if output_uuid in used_uuids:
+                                result.append(instr)
+                        else:
+                            # If no valid output UUID, keep the instruction
                             result.append(instr)
                     else:
-                        # If no valid output UUID, keep the instruction
+                        # If format doesn't match, keep the instruction
                         result.append(instr)
-                else:
-                    # If format doesn't match, keep the instruction
-                    result.append(instr)
         
         return result
 
@@ -296,6 +318,7 @@ class ProgUtils:
         
         return result
 
+        
     @staticmethod
     def map_uuids_to_refIDs(uuid_instructions):
         """Transform absolute UUIDs back into relative refIDs (N+X) for each step.
