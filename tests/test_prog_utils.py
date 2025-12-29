@@ -45,10 +45,49 @@ def test_remove_unused_instructions():
 
     assert cleaned_prog == expected_cleaned_prog, "cleaned_prog does not match expected_cleaned_prog"
 
-def test_reassign_invalid_uuids():
+def test_reassign_invalid_uuids2():
     invalid_uuid_refs = [
-        '23b8c1e9-3924-46de-beb1-3b9046685257 = get_objects(bdd640fb-0667-4ad1-9c80-317fa3b1799d)', 
-        'bd9c66b3-ad3c-4d6d-9a3d-1fa7bc8960a9 = get_bg(bdd640fb-0667-4ad1-9c80-317fa3b1799d)', 
+        '024a9166-4372-46e2-b709-c03e61828a98 = count_values(input_grid, 033b9766-4372-46e2-b709-c03e61828a98.c)',
+        '1e8ce73f-8182-4a02-9924-4bee3df5e372 = arg_min(input_grid, 024a9166-4372-46e2-b709-c03e61828a98)',
+        'ee2acb8e-1bbc-4f50-bdb1-9c4fc1f8e26c = sub(39400742-b213-4a98-9055-1ce1b6c84fda.width, 3)',
+        '2b2a24e9-02ef-4701-b14b-b93050c21397 = new_grid(5, 5, ee2acb8e-1bbc-4f50-bdb1-9c4fc1f8e26c)',
+        '8e7c283b-6244-4fdf-8d28-c587c6d2757e = div(2b2a24e9-02ef-4701-b14b-b93050c21397.max_y, 2)',
+        '94e4baf7-3580-4bab-989b-fac851937726 = set_pixels(input_grid, 2b2a24e9-02ef-4701-b14b-b93050c21397.y.x, 8e7c283b-6244-4fdf-8d28-c587c6d2757e, param1)'
+    ]
+
+    # Set deterministic seeds for all random number generators
+    np.random.seed(42)
+    random.seed(42)
+    
+    # Patch np.random.choice to sort list inputs for deterministic selection
+    # This ensures that when list(valid_uuids) is passed, it's sorted first
+    original_choice = np.random.choice
+    def deterministic_choice(a, **kwargs):
+        # Sort list inputs to ensure deterministic order (handles list(valid_uuids) case)
+        if isinstance(a, list):
+            a = sorted(a)
+        elif isinstance(a, (set, frozenset)):
+            a = sorted(a)
+        return original_choice(a, **kwargs)
+    
+    with patch('AmotizedDSL.prog_utils.np.random.choice', side_effect=deterministic_choice):
+        fixed_uuid_refs = ProgUtils.reassign_invalid_uuids(invalid_uuid_refs, 0)
+
+    expected_output = [
+        '024a9166-4372-46e2-b709-c03e61828a98 = count_values(input_grid, input_grid)',
+        '1e8ce73f-8182-4a02-9924-4bee3df5e372 = arg_min(input_grid, 024a9166-4372-46e2-b709-c03e61828a98)',
+        'ee2acb8e-1bbc-4f50-bdb1-9c4fc1f8e26c = sub(input_grid, 3)',
+        '2b2a24e9-02ef-4701-b14b-b93050c21397 = new_grid(5, 5, ee2acb8e-1bbc-4f50-bdb1-9c4fc1f8e26c)',
+        '8e7c283b-6244-4fdf-8d28-c587c6d2757e = div(2b2a24e9-02ef-4701-b14b-b93050c21397.max_y, 2)',
+        '94e4baf7-3580-4bab-989b-fac851937726 = set_pixels(input_grid, 2b2a24e9-02ef-4701-b14b-b93050c21397.y.x, 8e7c283b-6244-4fdf-8d28-c587c6d2757e, param1)'
+    ]
+
+    assert fixed_uuid_refs == expected_output, "fixed_uuid_refs does not match expected_output"
+
+def test_reassign_invalid_uuids1():
+    invalid_uuid_refs = [
+        '23b8c1e9-3924-46de-beb1-3b9046685257 = get_objects(input_grid)', 
+        'bd9c66b3-ad3c-4d6d-9a3d-1fa7bc8960a9 = get_bg(input_grid)', 
         '972a8469-1641-4f82-8b9d-2434e465e150 = neighbours8(23b8c1e9-3924-46de-beb1-3b9046685257)', 
         '17fc695a-07a0-4a6e-8822-e8f36c031199 = neighbours4(23b8c1e9-3924-46de-beb1-3b9046685257)', 
         '9a1de644-815e-46d1-bb8f-aa1837f8a88b = set_difference(972a8469-1641-4f82-8b9d-2434e465e150, 17fc695a-07a0-4a6e-8822-e8f36c031199)', 
@@ -83,8 +122,8 @@ def test_reassign_invalid_uuids():
         fixed_uuid_refs = ProgUtils.reassign_invalid_uuids(invalid_uuid_refs, 7)
 
     expected_uuid_refs = [
-        '23b8c1e9-3924-46de-beb1-3b9046685257 = get_objects(bdd640fb-0667-4ad1-9c80-317fa3b1799d)',
-        'bd9c66b3-ad3c-4d6d-9a3d-1fa7bc8960a9 = get_bg(bdd640fb-0667-4ad1-9c80-317fa3b1799d)',
+        '23b8c1e9-3924-46de-beb1-3b9046685257 = get_objects(input_grid)',
+        'bd9c66b3-ad3c-4d6d-9a3d-1fa7bc8960a9 = get_bg(input_grid)',
         '972a8469-1641-4f82-8b9d-2434e465e150 = neighbours8(23b8c1e9-3924-46de-beb1-3b9046685257)',
         '17fc695a-07a0-4a6e-8822-e8f36c031199 = neighbours4(23b8c1e9-3924-46de-beb1-3b9046685257)',
         '9a1de644-815e-46d1-bb8f-aa1837f8a88b = set_difference(972a8469-1641-4f82-8b9d-2434e465e150, 17fc695a-07a0-4a6e-8822-e8f36c031199)',
@@ -155,45 +194,45 @@ def test_map_refIDs_to_uuids():
         uuid_prog = ProgUtils.map_refIDs_to_uuids(prog_example)
 
     expected_uuid_prog = [
-        '23b8c1e9-3924-46de-beb1-3b9046685257 = get_objects(bdd640fb-0667-4ad1-9c80-317fa3b1799d)',
-        'bd9c66b3-ad3c-4d6d-9a3d-1fa7bc8960a9 = get_bg(bdd640fb-0667-4ad1-9c80-317fa3b1799d)',
-        'del(bdd640fb-0667-4ad1-9c80-317fa3b1799d)',
-        '972a8469-1641-4f82-8b9d-2434e465e150 = neighbours8(23b8c1e9-3924-46de-beb1-3b9046685257)',
-        '17fc695a-07a0-4a6e-8822-e8f36c031199 = neighbours4(23b8c1e9-3924-46de-beb1-3b9046685257)',
-        '9a1de644-815e-46d1-bb8f-aa1837f8a88b = set_difference(972a8469-1641-4f82-8b9d-2434e465e150, 17fc695a-07a0-4a6e-8822-e8f36c031199)',
-        'del(972a8469-1641-4f82-8b9d-2434e465e150)',
-        'b74d0fb1-32e7-4629-8fad-c1a606cb0fb3 = count_items(9a1de644-815e-46d1-bb8f-aa1837f8a88b)',
-        '6b65a6a4-8b81-48f6-b38a-088ca65ed389 = count_items(17fc695a-07a0-4a6e-8822-e8f36c031199)',
-        'del(17fc695a-07a0-4a6e-8822-e8f36c031199)',
-        'del(9a1de644-815e-46d1-bb8f-aa1837f8a88b)',
-        '47378190-96da-4dac-b2ff-5d2a386ecbe0 = equal(b74d0fb1-32e7-4629-8fad-c1a606cb0fb3, 1)',
-        'c241330b-01a9-471f-9e8a-774bcf36d58b = equal(b74d0fb1-32e7-4629-8fad-c1a606cb0fb3, 3)',
-        'del(b74d0fb1-32e7-4629-8fad-c1a606cb0fb3)',
-        '6c307511-b2b9-437a-a8df-6ec4ce4a2bbd = equal(6b65a6a4-8b81-48f6-b38a-088ca65ed389, 4)',
-        'del(6b65a6a4-8b81-48f6-b38a-088ca65ed389)',
-        '371ecd7b-27cd-4130-8722-9389571aa876 = and(c241330b-01a9-471f-9e8a-774bcf36d58b, 6c307511-b2b9-437a-a8df-6ec4ce4a2bbd)',
-        'del(c241330b-01a9-471f-9e8a-774bcf36d58b)',
-        'del(6c307511-b2b9-437a-a8df-6ec4ce4a2bbd)',
-        '1a2a73ed-562b-4f79-8374-59eef50bea63 = or(47378190-96da-4dac-b2ff-5d2a386ecbe0, 371ecd7b-27cd-4130-8722-9389571aa876)',
-        'del(47378190-96da-4dac-b2ff-5d2a386ecbe0)',
-        'del(371ecd7b-27cd-4130-8722-9389571aa876)',
-        '5be6128e-18c2-4797-a142-ea7d17be3111 = switch(1a2a73ed-562b-4f79-8374-59eef50bea63, "param1", 23b8c1e9-3924-46de-beb1-3b9046685257.c)',
-        'del(1a2a73ed-562b-4f79-8374-59eef50bea63)',
-        '43b7a3a6-9a8d-4a03-980d-7b71d8f56413 = set_color(23b8c1e9-3924-46de-beb1-3b9046685257, 5be6128e-18c2-4797-a142-ea7d17be3111)',
-        'del(5be6128e-18c2-4797-a142-ea7d17be3111)',
-        'del(23b8c1e9-3924-46de-beb1-3b9046685257)',
-        '759cde66-bacf-43d0-8b1f-9163ce9ff57f = rebuild_grid(bd9c66b3-ad3c-4d6d-9a3d-1fa7bc8960a9, 43b7a3a6-9a8d-4a03-980d-7b71d8f56413)',
+        'bdd640fb-0667-4ad1-9c80-317fa3b1799d = get_objects(input_grid)',
+        '23b8c1e9-3924-46de-beb1-3b9046685257 = get_bg(input_grid)',
+        'del(input_grid)',
+        'bd9c66b3-ad3c-4d6d-9a3d-1fa7bc8960a9 = neighbours8(bdd640fb-0667-4ad1-9c80-317fa3b1799d)',
+        '972a8469-1641-4f82-8b9d-2434e465e150 = neighbours4(bdd640fb-0667-4ad1-9c80-317fa3b1799d)',
+        '17fc695a-07a0-4a6e-8822-e8f36c031199 = set_difference(bd9c66b3-ad3c-4d6d-9a3d-1fa7bc8960a9, 972a8469-1641-4f82-8b9d-2434e465e150)',
         'del(bd9c66b3-ad3c-4d6d-9a3d-1fa7bc8960a9)',
-        'del(43b7a3a6-9a8d-4a03-980d-7b71d8f56413)'
+        '9a1de644-815e-46d1-bb8f-aa1837f8a88b = count_items(17fc695a-07a0-4a6e-8822-e8f36c031199)',
+        'b74d0fb1-32e7-4629-8fad-c1a606cb0fb3 = count_items(972a8469-1641-4f82-8b9d-2434e465e150)',
+        'del(972a8469-1641-4f82-8b9d-2434e465e150)',
+        'del(17fc695a-07a0-4a6e-8822-e8f36c031199)',
+        '6b65a6a4-8b81-48f6-b38a-088ca65ed389 = equal(9a1de644-815e-46d1-bb8f-aa1837f8a88b, 1)',
+        '47378190-96da-4dac-b2ff-5d2a386ecbe0 = equal(9a1de644-815e-46d1-bb8f-aa1837f8a88b, 3)',
+        'del(9a1de644-815e-46d1-bb8f-aa1837f8a88b)',
+        'c241330b-01a9-471f-9e8a-774bcf36d58b = equal(b74d0fb1-32e7-4629-8fad-c1a606cb0fb3, 4)',
+        'del(b74d0fb1-32e7-4629-8fad-c1a606cb0fb3)',
+        '6c307511-b2b9-437a-a8df-6ec4ce4a2bbd = and(47378190-96da-4dac-b2ff-5d2a386ecbe0, c241330b-01a9-471f-9e8a-774bcf36d58b)',
+        'del(47378190-96da-4dac-b2ff-5d2a386ecbe0)',
+        'del(c241330b-01a9-471f-9e8a-774bcf36d58b)',
+        '371ecd7b-27cd-4130-8722-9389571aa876 = or(6b65a6a4-8b81-48f6-b38a-088ca65ed389, 6c307511-b2b9-437a-a8df-6ec4ce4a2bbd)',
+        'del(6b65a6a4-8b81-48f6-b38a-088ca65ed389)',
+        'del(6c307511-b2b9-437a-a8df-6ec4ce4a2bbd)',
+        '1a2a73ed-562b-4f79-8374-59eef50bea63 = switch(371ecd7b-27cd-4130-8722-9389571aa876, "param1", bdd640fb-0667-4ad1-9c80-317fa3b1799d.c)',
+        'del(371ecd7b-27cd-4130-8722-9389571aa876)',
+        '5be6128e-18c2-4797-a142-ea7d17be3111 = set_color(bdd640fb-0667-4ad1-9c80-317fa3b1799d, 1a2a73ed-562b-4f79-8374-59eef50bea63)',
+        'del(1a2a73ed-562b-4f79-8374-59eef50bea63)',
+        'del(bdd640fb-0667-4ad1-9c80-317fa3b1799d)',
+        '43b7a3a6-9a8d-4a03-980d-7b71d8f56413 = rebuild_grid(23b8c1e9-3924-46de-beb1-3b9046685257, 5be6128e-18c2-4797-a142-ea7d17be3111)',
+        'del(23b8c1e9-3924-46de-beb1-3b9046685257)',
+        'del(5be6128e-18c2-4797-a142-ea7d17be3111)'
     ]
 
     assert uuid_prog == expected_uuid_prog, "uuid_prog does not match expected_uuid_prog"
 
 def test_map_uuids_to_refIDs():
     uuid_prog = [
-        '23b8c1e9-3924-46de-beb1-3b9046685257 = get_objects(bdd640fb-0667-4ad1-9c80-317fa3b1799d)',
-        'bd9c66b3-ad3c-4d6d-9a3d-1fa7bc8960a9 = get_bg(bdd640fb-0667-4ad1-9c80-317fa3b1799d)',
-        'del(bdd640fb-0667-4ad1-9c80-317fa3b1799d)',
+        '23b8c1e9-3924-46de-beb1-3b9046685257 = get_objects(input_grid)',
+        'bd9c66b3-ad3c-4d6d-9a3d-1fa7bc8960a9 = get_bg(input_grid)',
+        'del(input_grid)',
         '972a8469-1641-4f82-8b9d-2434e465e150 = neighbours8(23b8c1e9-3924-46de-beb1-3b9046685257)',
         '17fc695a-07a0-4a6e-8822-e8f36c031199 = neighbours4(23b8c1e9-3924-46de-beb1-3b9046685257)',
         '9a1de644-815e-46d1-bb8f-aa1837f8a88b = set_difference(972a8469-1641-4f82-8b9d-2434e465e150, 17fc695a-07a0-4a6e-8822-e8f36c031199)',
@@ -224,6 +263,9 @@ def test_map_uuids_to_refIDs():
     ]
 
     refID_prog = ProgUtils.map_uuids_to_refIDs(uuid_prog)
+
+    for line in refID_prog:
+        print(line)
 
     expected_refID_prog = [
         'get_objects(N+0)',
@@ -376,8 +418,8 @@ def test_remove_dels():
 def test_auto_add_dels():
 
     no_del_uuid_prog = [
-        '23b8c1e9-3924-46de-beb1-3b9046685257 = get_objects(bdd640fb-0667-4ad1-9c80-317fa3b1799d)', 
-        'bd9c66b3-ad3c-4d6d-9a3d-1fa7bc8960a9 = get_bg(bdd640fb-0667-4ad1-9c80-317fa3b1799d)', 
+        '23b8c1e9-3924-46de-beb1-3b9046685257 = get_objects(input_grid)', 
+        'bd9c66b3-ad3c-4d6d-9a3d-1fa7bc8960a9 = get_bg(input_grid)', 
         '972a8469-1641-4f82-8b9d-2434e465e150 = neighbours8(23b8c1e9-3924-46de-beb1-3b9046685257)', 
         '17fc695a-07a0-4a6e-8822-e8f36c031199 = neighbours4(23b8c1e9-3924-46de-beb1-3b9046685257)', 
         '9a1de644-815e-46d1-bb8f-aa1837f8a88b = set_difference(972a8469-1641-4f82-8b9d-2434e465e150, 17fc695a-07a0-4a6e-8822-e8f36c031199)', 
@@ -396,9 +438,9 @@ def test_auto_add_dels():
     added_dels_prog = ProgUtils.auto_add_dels(no_del_uuid_prog)
 
     expected_uuid_prog = [
-        '23b8c1e9-3924-46de-beb1-3b9046685257 = get_objects(bdd640fb-0667-4ad1-9c80-317fa3b1799d)',
-        'bd9c66b3-ad3c-4d6d-9a3d-1fa7bc8960a9 = get_bg(bdd640fb-0667-4ad1-9c80-317fa3b1799d)',
-        'del(bdd640fb-0667-4ad1-9c80-317fa3b1799d)',
+        '23b8c1e9-3924-46de-beb1-3b9046685257 = get_objects(input_grid)',
+        'bd9c66b3-ad3c-4d6d-9a3d-1fa7bc8960a9 = get_bg(input_grid)',
+        'del(input_grid)',
         '972a8469-1641-4f82-8b9d-2434e465e150 = neighbours8(23b8c1e9-3924-46de-beb1-3b9046685257)',
         '17fc695a-07a0-4a6e-8822-e8f36c031199 = neighbours4(23b8c1e9-3924-46de-beb1-3b9046685257)',
         '9a1de644-815e-46d1-bb8f-aa1837f8a88b = set_difference(972a8469-1641-4f82-8b9d-2434e465e150, 17fc695a-07a0-4a6e-8822-e8f36c031199)',
