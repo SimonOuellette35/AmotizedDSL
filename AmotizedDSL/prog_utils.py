@@ -760,6 +760,8 @@ class ProgUtils:
                     result.append(f"del({uuid})")
                     if uuid != 'input_grid':
                         deleted_uuids.add(uuid)  # Track UUIDs deleted by inserted del statements
+                    else:
+                        input_grid_deleted = True  # Track that input_grid was deleted
         
         # Add del statements at the end for all non-deleted UUIDs except the last output
         remaining_uuids = all_uuids - deleted_uuids
@@ -768,6 +770,10 @@ class ProgUtils:
         
         for uuid in sorted(remaining_uuids):
             result.append(f"del({uuid})")
+        
+        # Add del(input_grid) at the end if it hasn't been deleted already
+        if input_grid_last_occurrence is not None and not input_grid_deleted:
+            result.append("del(input_grid)")
         
         return result
 
