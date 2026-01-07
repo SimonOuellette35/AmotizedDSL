@@ -191,7 +191,7 @@ def kickstart_neural_primitive_program(state, primitives, obj_masks):
     # Execute the rest of the program starting from step 2 (index 1)
     return state
 
-def execute(token_seq_list, state, primitives, object_mask=None):
+def execute(token_seq_list, state, primitives, object_mask=None, debug_info=None):
     '''
     This function executes a whole program in token sequence format.
 
@@ -235,7 +235,10 @@ def execute(token_seq_list, state, primitives, object_mask=None):
                 state[k_idx].append(output[k_idx])
 
     if len(state[0]) > 1:
-        print("==> WARNING: final state contains more than one values! Suggests missing memory management primitives!")
+        if debug_info is not None:
+            print(f"==> WARNING [Task: {debug_info['task_name']}]: final state contains more than one values! Suggests missing memory management primitives!")
+        else:
+            print("==> WARNING: final state contains more than one values! Suggests missing memory management primitives!")
 
     return [state[k_idx][-1] for k_idx in range(len(state))]
 
