@@ -54,14 +54,18 @@ class ProgUtils:
             primitive_name: Name of the primitive function
             
         Returns:
-            1 if return type contains "GridObject"
-            2 if return type contains int
-            3 if return type contains bool
-            4 if return type contains "Pixel"
-            5 otherwise
+            TYPE_GRIDOBJECT (0) if return type contains "GridObject" (not in List)
+            TYPE_INT (1) if return type contains int (not in List)
+            TYPE_BOOL (2) if return type contains bool (not in List)
+            TYPE_PIXEL (3) if return type contains "Pixel" (not in List)
+            TYPE_LIST_GRIDOBJECT (4) if return type contains "List" and "GridObject"
+            TYPE_LIST_INT (5) if return type contains "List" and int
+            TYPE_LIST_BOOL (6) if return type contains "List" and bool
+            TYPE_LIST_PIXEL (7) if return type contains "List" and "Pixel"
+            TYPE_GRIDOBJECT (0) otherwise (default)
         """
         if primitive_name not in DSL.semantics:
-            return 5
+            return ProgUtils.TYPE_GRIDOBJECT
         
         prim_func = DSL.semantics[primitive_name]
         
@@ -69,8 +73,8 @@ class ProgUtils:
         if not callable(prim_func):
             # Integer constants return int
             if isinstance(prim_func, int):
-                return 2
-            return 5
+                return ProgUtils.TYPE_INT
+            return ProgUtils.TYPE_GRIDOBJECT
         
         # Get return annotation
         try:
@@ -78,25 +82,28 @@ class ProgUtils:
             return_annotation = sig.return_annotation
         except (ValueError, TypeError):
             # If signature can't be obtained, return default
-            return 5
+            return ProgUtils.TYPE_GRIDOBJECT
         
         # Convert annotation to string
         if return_annotation == inspect.Signature.empty:
-            return 5
+            return ProgUtils.TYPE_GRIDOBJECT
         
         return_type_str = str(return_annotation)
         
+        # Check if it's a List type first
+        is_list = 'List' in return_type_str
+        
         # Check in priority order: GridObject, int, bool, Pixel
         if 'GridObject' in return_type_str:
-            return 1
+            return ProgUtils.TYPE_LIST_GRIDOBJECT if is_list else ProgUtils.TYPE_GRIDOBJECT
         elif 'int' in return_type_str or 'COLOR' in return_type_str or 'DIM' in return_type_str:
-            return 2
+            return ProgUtils.TYPE_LIST_INT if is_list else ProgUtils.TYPE_INT
         elif 'bool' in return_type_str:
-            return 3
+            return ProgUtils.TYPE_LIST_BOOL if is_list else ProgUtils.TYPE_BOOL
         elif 'Pixel' in return_type_str:
-            return 4
+            return ProgUtils.TYPE_LIST_PIXEL if is_list else ProgUtils.TYPE_PIXEL
         else:
-            return 5
+            return ProgUtils.TYPE_GRIDOBJECT
 
     @staticmethod
     def convert_instruction_string_to_token_seq(instr_str):
