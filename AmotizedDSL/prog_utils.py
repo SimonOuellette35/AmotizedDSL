@@ -1,5 +1,6 @@
 from typing import List, Tuple
 import re
+import ast
 import AmotizedDSL.DSL as DSL
 import inspect
 import traceback
@@ -12,21 +13,24 @@ class ProgUtils:
     This class implements utility functions that manipulate program representations. In particular, it offers conversion methods between the
     different program representations. They are:
 
-    1 - hand-written representation: this format exists to facilitate manually describing programs. It is a list of instruction steps forming a
-    whole program. Each instruction step is a tuple of (primitive, arguments). In hand-written representation, each token is a text string,
-    with the exception of reference IDs that are integers.
+    1 - "User" format: Task DB-style program text instructions. Useful for user-input, user readablity, etc. Things like:
+        * "get_objects(N+0)"
+        * "index(N+1, 0)"
+        * "del(N+1)"
+        * "div(N+1.width, 2)"
 
-    2 - intermediate representation: in this format, we still have tuples as in hand-written representation, but the text strings have been resolved
+    2 - "Tuple" format: in this format, we still have tuples as in hand-written representation, but the text strings have been resolved
     to the indices in the DSL for each primitive. This format is used as input to the execute_step function in the program interpreter, because it's 
     easier to process.
 
-    3 - token sequence: this format is directly what is outputted by the decoding process. Here, the token IDs (integers) are offset relative to the
+    3 - "Token" format: this format is directly what is outputted by the decoding process. Here, the token IDs (integers) are offset relative to the
     primitive indices in the DSL, because there are special tokens to help structure the output. The token sequence format is, for each instruction
     step (decoding phase):
 
         [SOS, primitive, SOP, arg1(, attr), ARG_SEP, arg2(, attr), ARG_SEP, ..., EOS]
 
-    4 - LLM format: this format is used to interface with an LLM.
+    4 - "LLM" format: this format is used to interface with an LLM. It is a compact form of user-input format, text-based, intended to be optimal
+    for concise LLM prompts.
     '''
 
     SOS_TOKEN = 0           # Start of sentence
@@ -106,11 +110,205 @@ class ProgUtils:
             return ProgUtils.TYPE_GRIDOBJECT
 
     @staticmethod
-    def convert_instruction_string_to_token_seq(instr_str):
-        # TODO: this is the new streamlined instruction text format. It is possible that some of the older conversion
-        # methods are now obsolete because of this. To be reviewed. Maybe I can also implement the ground truth program
-        # strings in the LLM format directly and get rid of the other text format. The multitude of different program
-        # representations in this codebase is starting to get confusing and I need to look into simplifying/refactoring.
+    def convert_user_format_to_tuple_format(user_fmt, N):
+        """
+        Parse a program string (user format) into hand-written format.
+        
+        Args:
+            program_str: String like "[\n  get_objects(N+0),\n  del(N+0),\n  ...\n]"
+            N: Base offset for N+ references (typically len(DSL.semantics))
+        
+        Returns:
+            List of tuples in hand-written format: [(primitive_name, [args...]), ...]
+        """
+        
+        program = []
+        for line in user_fmt:
+            # Parse function call: primitive_name(arg1, arg2, ...)
+            match = re.match(r'(\w+)\((.*)\)', line)
+            if not match:
+                continue
+            
+            primitive_name = match.group(1)
+            args_str = match.group(2)
+            
+            # Parse arguments
+            args = []
+            if args_str.strip():
+                # Split arguments, handling nested structures
+                arg_parts = []
+                depth = 0
+                current_arg = []
+                i = 0
+                while i < len(args_str):
+                    char = args_str[i]
+                    if char == '[':
+                        depth += 1
+                        current_arg.append(char)
+                    elif char == ']':
+                        depth -= 1
+                        current_arg.append(char)
+                    elif char == ',' and depth == 0:
+                        # End of argument
+                        arg_parts.append(''.join(current_arg).strip())
+                        current_arg = []
+                    else:
+                        current_arg.append(char)
+                    i += 1
+                if current_arg:
+                    arg_parts.append(''.join(current_arg).strip())
+                
+                # Parse each argument
+                for arg_str in arg_parts:
+                    arg_str = arg_str.strip()
+                    if not arg_str:
+                        continue
+                    
+                    # Strip quotes from string arguments (handles "param1" -> param1)
+                    original_arg_str = arg_str
+                    parsed_string_value = None
+                    if (arg_str.startswith('"') and arg_str.endswith('"')) or (arg_str.startswith("'") and arg_str.endswith("'")):
+                        try:
+                            # Use ast.literal_eval to properly parse quoted strings
+                            parsed_string_value = ast.literal_eval(arg_str)
+                            if isinstance(parsed_string_value, str):
+                                arg_str = parsed_string_value
+                        except:
+                            # If parsing fails, just strip quotes manually
+                            arg_str = arg_str[1:-1]
+                    
+                    # Check for N+offset syntax
+                    n_match = re.match(r'N\+(\d+)', arg_str)
+                    if n_match:
+                        offset = int(n_match.group(1))
+                        value = N + offset
+                        # Check for attribute access like N+0.c
+                        if '.' in arg_str:
+                            attr_match = re.match(r'N\+\d+(\.\w+)', arg_str)
+                            if attr_match:
+                                attr = attr_match.group(1)
+                                args.append((value, attr))
+                            else:
+                                args.append(value)
+                        else:
+                            args.append(value)
+                    # Check for parameter placeholder like param1, param2
+                    elif arg_str.startswith('param') and arg_str[5:].isdigit():
+                        args.append(arg_str)  # Keep as string placeholder
+                    # Check for nested list
+                    elif arg_str.startswith('[') and arg_str.endswith(']'):
+                        # Parse as simple list of values
+                        inner = arg_str[1:-1].strip()
+                        if inner:
+                            # Split by comma, but handle nested structures
+                            nested_items = []
+                            depth = 0
+                            current_item = []
+                            for char in inner:
+                                if char == '[':
+                                    depth += 1
+                                    current_item.append(char)
+                                elif char == ']':
+                                    depth -= 1
+                                    current_item.append(char)
+                                elif char == ',' and depth == 0:
+                                    nested_items.append(''.join(current_item).strip())
+                                    current_item = []
+                                else:
+                                    current_item.append(char)
+                            if current_item:
+                                nested_items.append(''.join(current_item).strip())
+                            
+                            parsed_items = []
+                            for item in nested_items:
+                                item = item.strip()
+                                if not item:
+                                    continue
+                                
+                                # Strip quotes from string items (handles "param1" -> param1)
+                                original_item = item
+                                parsed_string_value = None
+                                if (item.startswith('"') and item.endswith('"')) or (item.startswith("'") and item.endswith("'")):
+                                    try:
+                                        # Use ast.literal_eval to properly parse quoted strings
+                                        parsed_string_value = ast.literal_eval(item)
+                                        if isinstance(parsed_string_value, str):
+                                            item = parsed_string_value
+                                    except:
+                                        # If parsing fails, just strip quotes manually
+                                        item = item[1:-1]
+                                
+                                # Check for N+offset syntax
+                                n_match = re.match(r'N\+(\d+)', item)
+                                if n_match:
+                                    offset = int(n_match.group(1))
+                                    parsed_items.append(N + offset)
+                                # Check for integer
+                                elif item.isdigit() or (item.startswith('-') and item[1:].isdigit()):
+                                    parsed_items.append(int(item))
+                                # Check for parameter placeholder
+                                elif item.startswith('param') and item[5:].isdigit():
+                                    parsed_items.append(item)
+                                else:
+                                    # If we already parsed a string value, use it; otherwise try to evaluate as Python literal
+                                    if parsed_string_value is not None:
+                                        parsed_items.append(parsed_string_value)
+                                    else:
+                                        try:
+                                            parsed_items.append(ast.literal_eval(item))
+                                        except:
+                                            parsed_items.append(item)
+                            args.append(parsed_items)
+                        else:
+                            args.append([])
+                    # Check for integer
+                    elif arg_str.isdigit() or (arg_str.startswith('-') and arg_str[1:].isdigit()):
+                        args.append(int(arg_str))
+                    # Check for attribute access on integer (like 0.c)
+                    elif re.match(r'(\d+)\.(\w+)', arg_str):
+                        match_attr = re.match(r'(\d+)\.(\w+)', arg_str)
+                        int_val = int(match_attr.group(1))
+                        attr = '.' + match_attr.group(2)
+                        args.append((int_val, attr))
+                    else:
+                        # If we already parsed a string value, use it; otherwise try to evaluate as Python literal
+                        if parsed_string_value is not None:
+                            args.append(parsed_string_value)
+                        else:
+                            try:
+                                args.append(ast.literal_eval(arg_str))
+                            except:
+                                # Keep as string if can't parse
+                                args.append(arg_str)
+            
+            program.append((primitive_name, args))
+        
+        return program
+
+    @staticmethod
+    def convert_user_format_to_token_seq(program_list):
+        """
+        Convert an instruction string (e.g., "get_objects(N+0)") to token sequence format.
+        
+        Args:
+            instr_str: Instruction string in format "primitive_name(arg1, arg2, ...)"
+                      where arguments can be:
+                      - "N+X" for reference IDs (X is integer)
+                      - Integer constants (0-9)
+                      - Attribute references like "N+X.y" or "N+X.x"
+        
+        Returns:
+            List of integers representing the token sequence: [SOS, primitive, SOP, args..., EOS]
+        """
+        output_prog = []
+        for program_line in program_list:
+            token_seq = ProgUtils.convert_user_instruction_to_token_seq(program_line)
+            output_prog.append(token_seq)
+
+        return output_prog
+
+    @staticmethod
+    def convert_user_instruction_to_token_seq(instr_str):
         """
         Convert an instruction string (e.g., "get_objects(N+0)") to token sequence format.
         
@@ -257,7 +455,7 @@ class ProgUtils:
         
         for prog_row in prog_list:
             # Convert instruction string to token sequence
-            instr = ProgUtils.convert_instruction_string_to_token_seq(prog_row)
+            instr = ProgUtils.convert_user_instruction_to_token_seq(prog_row)
             if instr is None:
                 return False
             
@@ -981,60 +1179,60 @@ class ProgUtils:
             # This is a reference idx (or an integer constant)
             return token_str
 
-    @staticmethod
-    def convert_token_subseq(instr_step, primitives):
-        '''
-        This function converts an instruction step from hand-written format to token sequence format
+    # @staticmethod
+    # def convert_token_subseq(instr_step, primitives):
+    #     '''
+    #     This function converts an instruction step from hand-written format to token sequence format
 
-        @param instr_step: a tuple of (context, primitive, arguments) in hand-written format (using text strings)
-        @param primitives: the DSL
+    #     @param instr_step: a tuple of (context, primitive, arguments) in hand-written format (using text strings)
+    #     @param primitives: the DSL
         
-        @return A sequence of tokens (integers or strings for placeholders) as directly outputted by the decoder in one iteration of program generation.
-        '''
-        prim_name = instr_step[0]
-        args = instr_step[1]
+    #     @return A sequence of tokens (integers or strings for placeholders) as directly outputted by the decoder in one iteration of program generation.
+    #     '''
+    #     prim_name = instr_step[0]
+    #     args = instr_step[1]
 
-        label_seq = [ProgUtils.SOS_TOKEN]
+    #     label_seq = [ProgUtils.SOS_TOKEN]
 
-        token_id = ProgUtils.resolve_token_str_to_token(prim_name, primitives)
-        label_seq.append(token_id)
-        label_seq.append(ProgUtils.SOP_TOKEN)
+    #     token_id = ProgUtils.resolve_token_str_to_token(prim_name, primitives)
+    #     label_seq.append(token_id)
+    #     label_seq.append(ProgUtils.SOP_TOKEN)
 
-        def resolve_arg_to_token(arg_val):
-            """Resolve an argument to a token, preserving placeholder strings."""
-            # Check if this is a placeholder string (starts with "param")
-            if isinstance(arg_val, str) and arg_val.startswith("param"):
-                return arg_val  # Preserve placeholder strings as-is
-            else:
-                return ProgUtils.resolve_token_str_to_token(arg_val, primitives)
+    #     def resolve_arg_to_token(arg_val):
+    #         """Resolve an argument to a token, preserving placeholder strings."""
+    #         # Check if this is a placeholder string (starts with "param")
+    #         if isinstance(arg_val, str) and arg_val.startswith("param"):
+    #             return arg_val  # Preserve placeholder strings as-is
+    #         else:
+    #             return ProgUtils.resolve_token_str_to_token(arg_val, primitives)
 
-        if args is not None:
-            for arg_idx, arg in enumerate(args):
-                # handle object-attribute pairs
-                if isinstance(arg, Tuple):
-                    tok_obj_id = resolve_arg_to_token(arg[0])
-                    tok_attr_id = resolve_arg_to_token(arg[1])
-                    label_seq.append(tok_obj_id)
-                    label_seq.append(tok_attr_id)
-                else:
-                    if isinstance(arg, List):
-                        # Here we can assume this is a switch statement, in which lists of conditions are possible.
-                        for tmp_idx, arg_elem in enumerate(arg):
-                            token_id = resolve_arg_to_token(arg_elem)
-                            label_seq.append(token_id)
+    #     if args is not None:
+    #         for arg_idx, arg in enumerate(args):
+    #             # handle object-attribute pairs
+    #             if isinstance(arg, Tuple):
+    #                 tok_obj_id = resolve_arg_to_token(arg[0])
+    #                 tok_attr_id = resolve_arg_to_token(arg[1])
+    #                 label_seq.append(tok_obj_id)
+    #                 label_seq.append(tok_attr_id)
+    #             else:
+    #                 if isinstance(arg, List):
+    #                     # Here we can assume this is a switch statement, in which lists of conditions are possible.
+    #                     for tmp_idx, arg_elem in enumerate(arg):
+    #                         token_id = resolve_arg_to_token(arg_elem)
+    #                         label_seq.append(token_id)
 
-                            if tmp_idx < len(arg) - 1:
-                                label_seq.append(ProgUtils.ARG_SEP_TOKEN)
-                    else:
-                        token_id = resolve_arg_to_token(arg)
-                        label_seq.append(token_id)
+    #                         if tmp_idx < len(arg) - 1:
+    #                             label_seq.append(ProgUtils.ARG_SEP_TOKEN)
+    #                 else:
+    #                     token_id = resolve_arg_to_token(arg)
+    #                     label_seq.append(token_id)
 
-                if arg_idx < len(args) - 1:
-                    label_seq.append(ProgUtils.ARG_SEP_TOKEN)
+    #             if arg_idx < len(args) - 1:
+    #                 label_seq.append(ProgUtils.ARG_SEP_TOKEN)
 
-        label_seq.append(ProgUtils.EOS_TOKEN)
+    #     label_seq.append(ProgUtils.EOS_TOKEN)
 
-        return label_seq
+    #     return label_seq
 
     @staticmethod
     def split_instr_comment(total_sequence):
@@ -1163,22 +1361,22 @@ class ProgUtils:
             # - String parsing operations fail (ValueError/IndexError)
             return None
 
-    @staticmethod
-    def convert_prog_to_token_seq(program, primitives):
-        '''
-        This function converts a whole program from hand-written format to token sequence format
+    # @staticmethod
+    # def convert_prog_to_token_seq(program, primitives):
+    #     '''
+    #     This function converts a whole program from hand-written format to token sequence format
 
-        @param program: a list of instructions steps (i.e. a whole program) in hand-written format (i.e. using text strings and tuples)
-        @param primitives: the DSL
+    #     @param program: a list of instructions steps (i.e. a whole program) in hand-written format (i.e. using text strings and tuples)
+    #     @param primitives: the DSL
 
-        @return A list of sequences of tokens (integers) as outputted by iterative decoding phases.
-        '''
-        label_seq = []
-        for token_subseq in program:
-            tmp_seq = ProgUtils.convert_token_subseq(token_subseq, primitives)
-            label_seq.append(tmp_seq)
+    #     @return A list of sequences of tokens (integers) as outputted by iterative decoding phases.
+    #     '''
+    #     label_seq = []
+    #     for token_subseq in program:
+    #         tmp_seq = ProgUtils.convert_token_subseq(token_subseq, primitives)
+    #         label_seq.append(tmp_seq)
 
-        return label_seq
+    #     return label_seq
 
     @staticmethod
     def convert_token_seq_to_token_tuple(step_token_seq, primitives):
@@ -1210,34 +1408,34 @@ class ProgUtils:
 
         return (primitive, args_seq)
 
-    @staticmethod
-    def convert_token_tuple_to_str(token_tuple, primitives):
+    # @staticmethod
+    # def convert_token_tuple_to_str(token_tuple, primitives):
 
-        N = len(primitives.semantics)
-        def arg_lookup(arg_idx):
-            if arg_idx >= N:
-                ref_id = arg_idx - N
-                return 'N+%i' % ref_id
+    #     N = len(primitives.semantics)
+    #     def arg_lookup(arg_idx):
+    #         if arg_idx >= N:
+    #             ref_id = arg_idx - N
+    #             return 'N+%i' % ref_id
             
-            else:
-                arg_name = primitives.inverse_lookup(arg_idx)
-                return arg_name
+    #         else:
+    #             arg_name = primitives.inverse_lookup(arg_idx)
+    #             return arg_name
 
-        prim_idx = token_tuple[0]
+    #     prim_idx = token_tuple[0]
 
-        prim_name = primitives.inverse_lookup(prim_idx)
+    #     prim_name = primitives.inverse_lookup(prim_idx)
 
-        arg_list = token_tuple[1]
+    #     arg_list = token_tuple[1]
 
-        arg_strs = []
-        for arg in arg_list:
-            if isinstance(arg, Tuple):
-                str1 = arg_lookup(arg[0])
-                str2 = arg_lookup(arg[1])
+    #     arg_strs = []
+    #     for arg in arg_list:
+    #         if isinstance(arg, Tuple):
+    #             str1 = arg_lookup(arg[0])
+    #             str2 = arg_lookup(arg[1])
 
-                arg_strs.append((str1, str2))
-            else:
-                str_arg = arg_lookup(arg)
-                arg_strs.append(str_arg)
+    #             arg_strs.append((str1, str2))
+    #         else:
+    #             str_arg = arg_lookup(arg)
+    #             arg_strs.append(str_arg)
 
-        return (prim_name, arg_strs)
+    #     return (prim_name, arg_strs)
