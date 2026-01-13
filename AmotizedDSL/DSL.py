@@ -1645,7 +1645,7 @@ def crop(g: Union[GridObject, List[GridObject]], x1: Union[int, List[int]], y1: 
 
         return output_grids
 
-def max_x(g: Union[GridObject, List[GridObject]]) -> Union[int, List[DIM]]:
+def max_x(g: Union[GridObject, List[GridObject]]) -> Union[DIM, List[DIM]]:
     if isinstance(g, List):
         output = []
         for tmp_g in g:
@@ -1654,7 +1654,7 @@ def max_x(g: Union[GridObject, List[GridObject]]) -> Union[int, List[DIM]]:
     else:
         return g.max_x
 
-def max_y(g: Union[GridObject, List[GridObject]]) -> Union[int, List[DIM]]:
+def max_y(g: Union[GridObject, List[GridObject]]) -> Union[DIM, List[DIM]]:
     if isinstance(g, List):
         output = []
         for tmp_g in g:

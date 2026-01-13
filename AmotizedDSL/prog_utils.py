@@ -51,8 +51,61 @@ class ProgUtils:
     NUM_TYPE_TOKENS = 8  # Number of distinct type tokens
 
     @staticmethod
+    def dynamic_infer_result_type(instruction_seq, state_var_types):
+        '''Based on provided state variables, it returns the exact result type for the
+        provided instruction_seq.
+
+        For example, get_index, keep, exclude and switch have dynamic return types that
+        cannot be determined statistically. So this function resolves the return type
+        by looking at the resulting variable's actual type.
+        '''
+
+        primitive_idx = instruction_seq[1] - ProgUtils.NUM_SPECIAL_TOKENS
+
+        prim_name = DSL.inverse_lookup(primitive_idx)
+
+        if prim_name == 'get_objects':
+            return ProgUtils.TYPE_LIST_GRIDOBJECT
+
+        if prim_name == 'get_bg':
+            return ProgUtils.TYPE_GRIDOBJECT
+
+        if prim_name == 'switch':
+            # Special case
+            return ProgUtils.infer_switch_type(instruction_seq, state_var_types)
+
+        prim_func = DSL.semantics[prim_name]
+
+        arguments = ProgUtils.parse_token_arguments(instruction_seq)
+        data_types = ProgUtils.extract_var_types(arguments, state_var_types)
+
+        # generate variable examples and execute the instruction to get a result example
+        var_examples = ProgUtils.generate_var_examples(data_types)
+
+        try:
+            result = prim_func(*var_examples)
+
+            if result is None:
+                print("ERROR: result is None!")
+                exit(-1)
+
+        except Exception as e:
+            print("Exception while executing primitive function:")
+            traceback.print_exc()
+            print(f"Error message: {str(e)}")
+            exit(-1)
+
+        # get result type as an integer
+        return ProgUtils.get_variable_type_code(result)
+
+
+    @staticmethod
     def static_infer_result_type(primitive_name):
-        """Get the return type of a primitive by method name.
+        """Get the return type of a primitive by method name, statically.
+
+        When the return type is a Union or a non-list and a list, it prioritizes the list.
+        When the return type is itself ambiguous (mainly because it's a dynamic type T), it
+        returns GridObject type.
         
         Args:
             primitive_name: Name of the primitive function
@@ -110,12 +163,149 @@ class ProgUtils:
             return ProgUtils.TYPE_GRIDOBJECT
 
     @staticmethod
+    def parse_user_instruction(user_fmt_instr):
+        # Parse function call: primitive_name(arg1, arg2, ...)
+        match = re.match(r'(\w+)\((.*)\)', user_fmt_instr)
+        if not match:
+            return None, None
+        
+        primitive_name = match.group(1)
+        args_str = match.group(2)
+        
+        # Parse arguments
+        arg_parts = []
+        if args_str.strip():
+            # Split arguments, handling nested structures
+            depth = 0
+            current_arg = []
+            i = 0
+            while i < len(args_str):
+                char = args_str[i]
+                if char == '[':
+                    depth += 1
+                    current_arg.append(char)
+                elif char == ']':
+                    depth -= 1
+                    current_arg.append(char)
+                elif char == ',' and depth == 0:
+                    # End of argument
+                    arg_parts.append(''.join(current_arg).strip())
+                    current_arg = []
+                else:
+                    current_arg.append(char)
+                i += 1
+            if current_arg:
+                arg_parts.append(''.join(current_arg).strip())
+            
+        return primitive_name, arg_parts
+
+    @staticmethod
+    def parse_user_fmt_arg_to_tuple_arg(arg_str, N):
+        # Strip quotes from string arguments (handles "param1" -> param1)
+        parsed_string_value = None
+        if (arg_str.startswith('"') and arg_str.endswith('"')) or (arg_str.startswith("'") and arg_str.endswith("'")):
+            arg_str = arg_str[1:-1]
+        
+        # Check for N+offset syntax
+        n_match = re.match(r'N\+(\d+)', arg_str)
+        if n_match:
+            offset = int(n_match.group(1))
+            value = N + offset
+            # Check for attribute access like N+0.c
+            if '.' in arg_str:
+                attr_match = re.match(r'N\+\d+(\.\w+)', arg_str)
+                if attr_match:
+                    attr = attr_match.group(1)
+                    return (value, attr)
+                else:
+                    return value
+            else:
+                return value
+
+        # Check for parameter placeholder like param1, param2
+        elif arg_str.startswith('param') and arg_str[5:].isdigit():
+            return arg_str  # Keep as string placeholder
+
+        # Check for nested list
+        elif arg_str.startswith('[') and arg_str.endswith(']'):
+            # Parse as simple list of values
+            inner = arg_str[1:-1].strip()
+            if inner:
+                # Split by comma, but handle nested structures
+                nested_items = []
+                depth = 0
+                current_item = []
+                for char in inner:
+                    if char == '[':
+                        depth += 1
+                        current_item.append(char)
+                    elif char == ']':
+                        depth -= 1
+                        current_item.append(char)
+                    elif char == ',' and depth == 0:
+                        nested_items.append(''.join(current_item).strip())
+                        current_item = []
+                    else:
+                        current_item.append(char)
+                if current_item:
+                    nested_items.append(''.join(current_item).strip())
+                
+                parsed_items = []
+                for item in nested_items:
+                    item = item.strip()
+                    if not item:
+                        continue
+                    
+                    # Strip quotes from string items (handles "param1" -> param1)
+                    parsed_string_value = None
+                    if (item.startswith('"') and item.endswith('"')) or (item.startswith("'") and item.endswith("'")):
+                        try:
+                            # Use ast.literal_eval to properly parse quoted strings
+                            parsed_string_value = ast.literal_eval(item)
+                            if isinstance(parsed_string_value, str):
+                                item = parsed_string_value
+                        except:
+                            # If parsing fails, just strip quotes manually
+                            item = item[1:-1]
+                    
+                    # Check for N+offset syntax
+                    n_match = re.match(r'N\+(\d+)', item)
+                    if n_match:
+                        offset = int(n_match.group(1))
+                        parsed_items.append(N + offset)
+                    # Check for integer
+                    elif item.isdigit() or (item.startswith('-') and item[1:].isdigit()):
+                        parsed_items.append(int(item))
+                    # Check for parameter placeholder
+                    elif item.startswith('param') and item[5:].isdigit():
+                        parsed_items.append(item)
+                    else:
+                        # If we already parsed a string value, use it; otherwise try to evaluate as Python literal
+                        if parsed_string_value is not None:
+                            parsed_items.append(parsed_string_value)
+                        else:
+                            try:
+                                parsed_items.append(ast.literal_eval(item))
+                            except:
+                                parsed_items.append(item)
+                return parsed_items
+            else:
+                return []
+                
+        # Check for integer
+        elif arg_str.isdigit() or (arg_str.startswith('-') and arg_str[1:].isdigit()):
+            return int(arg_str)
+
+        else:
+            raise ValueError(f"==> ERROR in ProgUtils.parse_user_fmt_arg_to_tuple_arg: could not parse {arg_str}")
+
+    @staticmethod
     def convert_user_format_to_tuple_format(user_fmt, N):
         """
         Parse a program string (user format) into hand-written format.
         
         Args:
-            program_str: String like "[\n  get_objects(N+0),\n  del(N+0),\n  ...\n]"
+            user_fmt: List of user format instructions
             N: Base offset for N+ references (typically len(DSL.semantics))
         
         Returns:
@@ -124,163 +314,19 @@ class ProgUtils:
         
         program = []
         for line in user_fmt:
-            # Parse function call: primitive_name(arg1, arg2, ...)
-            match = re.match(r'(\w+)\((.*)\)', line)
-            if not match:
-                continue
-            
-            primitive_name = match.group(1)
-            args_str = match.group(2)
-            
-            # Parse arguments
+            primitive_name, arg_parts = ProgUtils.parse_user_instruction(line)
+
             args = []
-            if args_str.strip():
-                # Split arguments, handling nested structures
-                arg_parts = []
-                depth = 0
-                current_arg = []
-                i = 0
-                while i < len(args_str):
-                    char = args_str[i]
-                    if char == '[':
-                        depth += 1
-                        current_arg.append(char)
-                    elif char == ']':
-                        depth -= 1
-                        current_arg.append(char)
-                    elif char == ',' and depth == 0:
-                        # End of argument
-                        arg_parts.append(''.join(current_arg).strip())
-                        current_arg = []
-                    else:
-                        current_arg.append(char)
-                    i += 1
-                if current_arg:
-                    arg_parts.append(''.join(current_arg).strip())
+            # Parse each argument
+            for arg_str in arg_parts:
+                arg_str = arg_str.strip()
+                if not arg_str:
+                    continue
                 
-                # Parse each argument
-                for arg_str in arg_parts:
-                    arg_str = arg_str.strip()
-                    if not arg_str:
-                        continue
-                    
-                    # Strip quotes from string arguments (handles "param1" -> param1)
-                    original_arg_str = arg_str
-                    parsed_string_value = None
-                    if (arg_str.startswith('"') and arg_str.endswith('"')) or (arg_str.startswith("'") and arg_str.endswith("'")):
-                        try:
-                            # Use ast.literal_eval to properly parse quoted strings
-                            parsed_string_value = ast.literal_eval(arg_str)
-                            if isinstance(parsed_string_value, str):
-                                arg_str = parsed_string_value
-                        except:
-                            # If parsing fails, just strip quotes manually
-                            arg_str = arg_str[1:-1]
-                    
-                    # Check for N+offset syntax
-                    n_match = re.match(r'N\+(\d+)', arg_str)
-                    if n_match:
-                        offset = int(n_match.group(1))
-                        value = N + offset
-                        # Check for attribute access like N+0.c
-                        if '.' in arg_str:
-                            attr_match = re.match(r'N\+\d+(\.\w+)', arg_str)
-                            if attr_match:
-                                attr = attr_match.group(1)
-                                args.append((value, attr))
-                            else:
-                                args.append(value)
-                        else:
-                            args.append(value)
-                    # Check for parameter placeholder like param1, param2
-                    elif arg_str.startswith('param') and arg_str[5:].isdigit():
-                        args.append(arg_str)  # Keep as string placeholder
-                    # Check for nested list
-                    elif arg_str.startswith('[') and arg_str.endswith(']'):
-                        # Parse as simple list of values
-                        inner = arg_str[1:-1].strip()
-                        if inner:
-                            # Split by comma, but handle nested structures
-                            nested_items = []
-                            depth = 0
-                            current_item = []
-                            for char in inner:
-                                if char == '[':
-                                    depth += 1
-                                    current_item.append(char)
-                                elif char == ']':
-                                    depth -= 1
-                                    current_item.append(char)
-                                elif char == ',' and depth == 0:
-                                    nested_items.append(''.join(current_item).strip())
-                                    current_item = []
-                                else:
-                                    current_item.append(char)
-                            if current_item:
-                                nested_items.append(''.join(current_item).strip())
-                            
-                            parsed_items = []
-                            for item in nested_items:
-                                item = item.strip()
-                                if not item:
-                                    continue
-                                
-                                # Strip quotes from string items (handles "param1" -> param1)
-                                original_item = item
-                                parsed_string_value = None
-                                if (item.startswith('"') and item.endswith('"')) or (item.startswith("'") and item.endswith("'")):
-                                    try:
-                                        # Use ast.literal_eval to properly parse quoted strings
-                                        parsed_string_value = ast.literal_eval(item)
-                                        if isinstance(parsed_string_value, str):
-                                            item = parsed_string_value
-                                    except:
-                                        # If parsing fails, just strip quotes manually
-                                        item = item[1:-1]
-                                
-                                # Check for N+offset syntax
-                                n_match = re.match(r'N\+(\d+)', item)
-                                if n_match:
-                                    offset = int(n_match.group(1))
-                                    parsed_items.append(N + offset)
-                                # Check for integer
-                                elif item.isdigit() or (item.startswith('-') and item[1:].isdigit()):
-                                    parsed_items.append(int(item))
-                                # Check for parameter placeholder
-                                elif item.startswith('param') and item[5:].isdigit():
-                                    parsed_items.append(item)
-                                else:
-                                    # If we already parsed a string value, use it; otherwise try to evaluate as Python literal
-                                    if parsed_string_value is not None:
-                                        parsed_items.append(parsed_string_value)
-                                    else:
-                                        try:
-                                            parsed_items.append(ast.literal_eval(item))
-                                        except:
-                                            parsed_items.append(item)
-                            args.append(parsed_items)
-                        else:
-                            args.append([])
-                    # Check for integer
-                    elif arg_str.isdigit() or (arg_str.startswith('-') and arg_str[1:].isdigit()):
-                        args.append(int(arg_str))
-                    # Check for attribute access on integer (like 0.c)
-                    elif re.match(r'(\d+)\.(\w+)', arg_str):
-                        match_attr = re.match(r'(\d+)\.(\w+)', arg_str)
-                        int_val = int(match_attr.group(1))
-                        attr = '.' + match_attr.group(2)
-                        args.append((int_val, attr))
-                    else:
-                        # If we already parsed a string value, use it; otherwise try to evaluate as Python literal
-                        if parsed_string_value is not None:
-                            args.append(parsed_string_value)
-                        else:
-                            try:
-                                args.append(ast.literal_eval(arg_str))
-                            except:
-                                # Keep as string if can't parse
-                                args.append(arg_str)
-            
+                val = ProgUtils.parse_user_fmt_arg_to_tuple_arg(arg_str, N)
+
+                args.append(val)
+
             program.append((primitive_name, args))
         
         return program
@@ -322,14 +368,12 @@ class ProgUtils:
         Returns:
             List of integers representing the token sequence: [SOS, primitive, SOP, args..., EOS]
         """
-        # Parse primitive name and arguments
-        match = re.match(r'(\w+)\((.*)\)', instr_str.strip())
-        if not match:
+        prim_name, args_str = ProgUtils.parse_user_instruction(instr_str)
+
+        # Handle case where parsing failed
+        if prim_name is None or args_str is None:
             return None
-        
-        prim_name = match.group(1)
-        args_str = match.group(2).strip()
-        
+
         # Get primitive token ID
         if prim_name not in DSL.prim_indices:
             return None
@@ -341,36 +385,11 @@ class ProgUtils:
         
         # Parse arguments
         if args_str:
-            # Split arguments by comma, but be careful with nested structures
-            args = []
-            current_arg = ""
-            paren_depth = 0
-            
-            for char in args_str:
-                if char == '(':
-                    paren_depth += 1
-                    current_arg += char
-                elif char == ')':
-                    paren_depth -= 1
-                    current_arg += char
-                elif char == ',' and paren_depth == 0:
-                    args.append(current_arg.strip())
-                    current_arg = ""
-                else:
-                    current_arg += char
-            
-            if current_arg.strip():
-                args.append(current_arg.strip())
-            
             # Convert each argument to tokens
-            for arg_idx, arg in enumerate(args):
+            for arg_idx, arg in enumerate(args_str):
                 arg = arg.strip()
                 if not arg:
                     continue
-                
-                # Strip quotes if present (e.g., "param1" -> param1)
-                if (arg.startswith('"') and arg.endswith('"')) or (arg.startswith("'") and arg.endswith("'")):
-                    arg = arg[1:-1]
                 
                 # Check if it's an attribute reference (e.g., "N+0.x")
                 if '.' in arg:
@@ -403,10 +422,15 @@ class ProgUtils:
                         ref_token = len(DSL.semantics) + ref_id + ProgUtils.NUM_SPECIAL_TOKENS
                         token_seq.append(ref_token)
                     else:
+                        # Strip quotes if present (e.g., "param1" -> param1)
+                        unquoted_arg = arg
+                        if (arg.startswith('"') and arg.endswith('"')) or (arg.startswith("'") and arg.endswith("'")):
+                            unquoted_arg = arg[1:-1]
+                        
                         # Check if it's a param placeholder (e.g., "param1", "param2")
-                        if re.match(r'^param\d+$', arg):
-                            # Keep param placeholder as string in token sequence
-                            token_seq.append(arg)
+                        if re.match(r'^param\d+$', unquoted_arg):
+                            # Keep param placeholder as string in token sequence (unquoted)
+                            token_seq.append(unquoted_arg)
                         else:
                             # Try to parse as integer constant
                             try:
@@ -420,7 +444,7 @@ class ProgUtils:
                                 return None
                 
                 # Add argument separator if not last argument
-                if arg_idx < len(args) - 1:
+                if arg_idx < len(args_str) - 1:
                     token_seq.append(ProgUtils.ARG_SEP_TOKEN)
         
         token_seq.append(ProgUtils.EOS_TOKEN)
@@ -460,7 +484,7 @@ class ProgUtils:
                 return False
             
             # Extract all reference IDs from this instruction
-            arguments = ProgUtils.parse_arguments(instr)
+            arguments = ProgUtils.parse_token_arguments(instr)
 
             for arg in arguments:
                 if len(arg) == 0:
@@ -606,7 +630,7 @@ class ProgUtils:
             return False, f"impossible for reference IDs to refer to ids > {num_vars}"
 
         # Extract the instruction sequence's arguments
-        arguments = ProgUtils.parse_arguments(instr)
+        arguments = ProgUtils.parse_token_arguments(instr)
 
         # Some primitives have special validation rules.
         primitive_idx = instr[1] - ProgUtils.NUM_SPECIAL_TOKENS
@@ -676,7 +700,7 @@ class ProgUtils:
 
 
     @staticmethod
-    def parse_arguments(instr: List[int]) -> List[List[int]]:
+    def parse_token_arguments(instr: List[int]) -> List[List[int]]:
         """
         Parse arguments from a program instruction sequence.
         - 1 marks the start of arguments list
@@ -896,7 +920,7 @@ class ProgUtils:
 
     @staticmethod
     def infer_switch_type(instruction_seq, state_var_types):
-        arguments = ProgUtils.parse_arguments(instruction_seq)
+        arguments = ProgUtils.parse_token_arguments(instruction_seq)
         data_types = ProgUtils.extract_var_types(arguments, state_var_types)
 
         n_args = len(arguments)
@@ -940,47 +964,6 @@ class ProgUtils:
 
         print("==> ERROR: should reach here in infer_switch_type...")
         exit(-1)
-
-    @staticmethod
-    def infer_result_type(instruction_seq, state_var_types):
-        primitive_idx = instruction_seq[1] - ProgUtils.NUM_SPECIAL_TOKENS
-
-        prim_name = DSL.inverse_lookup(primitive_idx)
-
-        if prim_name == 'get_objects':
-            return ProgUtils.TYPE_LIST_GRIDOBJECT
-
-        if prim_name == 'get_bg':
-            return ProgUtils.TYPE_GRIDOBJECT
-
-        if prim_name == 'switch':
-            # Special case
-            return ProgUtils.infer_switch_type(instruction_seq, state_var_types)
-
-        prim_func = DSL.semantics[prim_name]
-
-        arguments = ProgUtils.parse_arguments(instruction_seq)
-        data_types = ProgUtils.extract_var_types(arguments, state_var_types)
-
-        # generate variable examples and execute the instruction to get a result example
-        var_examples = ProgUtils.generate_var_examples(data_types)
-
-        try:
-            result = prim_func(*var_examples)
-
-            if result is None:
-                print("ERROR: result is None!")
-                exit(-1)
-
-        except Exception as e:
-            print("Exception while executing primitive function:")
-            traceback.print_exc()
-            print(f"Error message: {str(e)}")
-            exit(-1)
-
-        # get result type as an integer
-        return ProgUtils.get_variable_type_code(result)
-
 
     @staticmethod
     def get_prim_func_arg_types(primitive_idx, nargs):
@@ -1179,61 +1162,6 @@ class ProgUtils:
             # This is a reference idx (or an integer constant)
             return token_str
 
-    # @staticmethod
-    # def convert_token_subseq(instr_step, primitives):
-    #     '''
-    #     This function converts an instruction step from hand-written format to token sequence format
-
-    #     @param instr_step: a tuple of (context, primitive, arguments) in hand-written format (using text strings)
-    #     @param primitives: the DSL
-        
-    #     @return A sequence of tokens (integers or strings for placeholders) as directly outputted by the decoder in one iteration of program generation.
-    #     '''
-    #     prim_name = instr_step[0]
-    #     args = instr_step[1]
-
-    #     label_seq = [ProgUtils.SOS_TOKEN]
-
-    #     token_id = ProgUtils.resolve_token_str_to_token(prim_name, primitives)
-    #     label_seq.append(token_id)
-    #     label_seq.append(ProgUtils.SOP_TOKEN)
-
-    #     def resolve_arg_to_token(arg_val):
-    #         """Resolve an argument to a token, preserving placeholder strings."""
-    #         # Check if this is a placeholder string (starts with "param")
-    #         if isinstance(arg_val, str) and arg_val.startswith("param"):
-    #             return arg_val  # Preserve placeholder strings as-is
-    #         else:
-    #             return ProgUtils.resolve_token_str_to_token(arg_val, primitives)
-
-    #     if args is not None:
-    #         for arg_idx, arg in enumerate(args):
-    #             # handle object-attribute pairs
-    #             if isinstance(arg, Tuple):
-    #                 tok_obj_id = resolve_arg_to_token(arg[0])
-    #                 tok_attr_id = resolve_arg_to_token(arg[1])
-    #                 label_seq.append(tok_obj_id)
-    #                 label_seq.append(tok_attr_id)
-    #             else:
-    #                 if isinstance(arg, List):
-    #                     # Here we can assume this is a switch statement, in which lists of conditions are possible.
-    #                     for tmp_idx, arg_elem in enumerate(arg):
-    #                         token_id = resolve_arg_to_token(arg_elem)
-    #                         label_seq.append(token_id)
-
-    #                         if tmp_idx < len(arg) - 1:
-    #                             label_seq.append(ProgUtils.ARG_SEP_TOKEN)
-    #                 else:
-    #                     token_id = resolve_arg_to_token(arg)
-    #                     label_seq.append(token_id)
-
-    #             if arg_idx < len(args) - 1:
-    #                 label_seq.append(ProgUtils.ARG_SEP_TOKEN)
-
-    #     label_seq.append(ProgUtils.EOS_TOKEN)
-
-    #     return label_seq
-
     @staticmethod
     def split_instr_comment(total_sequence):
         '''
@@ -1361,23 +1289,6 @@ class ProgUtils:
             # - String parsing operations fail (ValueError/IndexError)
             return None
 
-    # @staticmethod
-    # def convert_prog_to_token_seq(program, primitives):
-    #     '''
-    #     This function converts a whole program from hand-written format to token sequence format
-
-    #     @param program: a list of instructions steps (i.e. a whole program) in hand-written format (i.e. using text strings and tuples)
-    #     @param primitives: the DSL
-
-    #     @return A list of sequences of tokens (integers) as outputted by iterative decoding phases.
-    #     '''
-    #     label_seq = []
-    #     for token_subseq in program:
-    #         tmp_seq = ProgUtils.convert_token_subseq(token_subseq, primitives)
-    #         label_seq.append(tmp_seq)
-
-    #     return label_seq
-
     @staticmethod
     def convert_token_seq_to_token_tuple(step_token_seq, primitives):
         '''
@@ -1407,35 +1318,3 @@ class ProgUtils:
                 arg_tokens.append(arg)
 
         return (primitive, args_seq)
-
-    # @staticmethod
-    # def convert_token_tuple_to_str(token_tuple, primitives):
-
-    #     N = len(primitives.semantics)
-    #     def arg_lookup(arg_idx):
-    #         if arg_idx >= N:
-    #             ref_id = arg_idx - N
-    #             return 'N+%i' % ref_id
-            
-    #         else:
-    #             arg_name = primitives.inverse_lookup(arg_idx)
-    #             return arg_name
-
-    #     prim_idx = token_tuple[0]
-
-    #     prim_name = primitives.inverse_lookup(prim_idx)
-
-    #     arg_list = token_tuple[1]
-
-    #     arg_strs = []
-    #     for arg in arg_list:
-    #         if isinstance(arg, Tuple):
-    #             str1 = arg_lookup(arg[0])
-    #             str2 = arg_lookup(arg[1])
-
-    #             arg_strs.append((str1, str2))
-    #         else:
-    #             str_arg = arg_lookup(arg)
-    #             arg_strs.append(str_arg)
-
-    #     return (prim_name, arg_strs)

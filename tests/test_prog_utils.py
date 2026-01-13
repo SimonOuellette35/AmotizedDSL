@@ -27,7 +27,7 @@ def test_infer_type_new_grid():
     state_var_types = []
     
     # Call infer_result_type
-    result_type = ProgUtils.infer_result_type(instruction_seq, state_var_types)
+    result_type = ProgUtils.dynamic_infer_result_type(instruction_seq, state_var_types)
     
     # Verify the result type is TYPE_GRIDOBJECT (since new_grid returns a GridObject)
     assert result_type == ProgUtils.TYPE_GRIDOBJECT, \
@@ -52,7 +52,7 @@ def test_infer_type_unique():
     state_var_types = [ProgUtils.TYPE_LIST_INT]
     
     # Call infer_result_type
-    result_type = ProgUtils.infer_result_type(instruction_seq, state_var_types)
+    result_type = ProgUtils.dynamic_infer_result_type(instruction_seq, state_var_types)
     
     # Verify the result type
     assert result_type == ProgUtils.TYPE_LIST_INT, \
@@ -80,7 +80,7 @@ def test_infer_type_get_index():
     state_var_types = [ProgUtils.TYPE_LIST_INT]
     
     # Call infer_result_type
-    result_type = ProgUtils.infer_result_type(instruction_seq, state_var_types)
+    result_type = ProgUtils.dynamic_infer_result_type(instruction_seq, state_var_types)
     
     # Verify the result type
     assert result_type == ProgUtils.TYPE_INT, \
@@ -90,7 +90,7 @@ def test_infer_type_get_index():
     state_var_types = [ProgUtils.TYPE_LIST_BOOL]
     
     # Call infer_result_type
-    result_type = ProgUtils.infer_result_type(instruction_seq, state_var_types)
+    result_type = ProgUtils.dynamic_infer_result_type(instruction_seq, state_var_types)
     
     # Verify the result type
     assert result_type == ProgUtils.TYPE_BOOL, \
@@ -100,7 +100,7 @@ def test_infer_type_get_index():
     state_var_types = [ProgUtils.TYPE_LIST_GRIDOBJECT]
     
     # Call infer_result_type
-    result_type = ProgUtils.infer_result_type(instruction_seq, state_var_types)
+    result_type = ProgUtils.dynamic_infer_result_type(instruction_seq, state_var_types)
     
     # Verify the result type
     assert result_type == ProgUtils.TYPE_GRIDOBJECT, \
@@ -128,7 +128,7 @@ def test_infer_type_less_than():
     state_var_types = []
     
     # Call infer_result_type
-    result_type = ProgUtils.infer_result_type(instruction_seq, state_var_types)
+    result_type = ProgUtils.dynamic_infer_result_type(instruction_seq, state_var_types)
     
     # Verify the result type
     assert result_type == ProgUtils.TYPE_BOOL, \
@@ -151,7 +151,7 @@ def test_infer_type_less_than():
     state_var_types = [ProgUtils.TYPE_LIST_INT]
     
     # Call infer_result_type
-    result_type = ProgUtils.infer_result_type(instruction_seq, state_var_types)
+    result_type = ProgUtils.dynamic_infer_result_type(instruction_seq, state_var_types)
     
     # Verify the result type
     assert result_type == ProgUtils.TYPE_LIST_BOOL, \
@@ -175,7 +175,7 @@ def test_infer_type_less_than():
     state_var_types = [ProgUtils.TYPE_LIST_INT, ProgUtils.TYPE_LIST_INT]
     
     # Call infer_result_type
-    result_type = ProgUtils.infer_result_type(instruction_seq, state_var_types)
+    result_type = ProgUtils.dynamic_infer_result_type(instruction_seq, state_var_types)
     
     # Verify the result type
     assert result_type == ProgUtils.TYPE_LIST_BOOL, \
@@ -201,7 +201,7 @@ def test_infer_type_count_items():
     state_var_types = [ProgUtils.TYPE_LIST_INT]
     
     # Call infer_result_type
-    result_type = ProgUtils.infer_result_type(instruction_seq, state_var_types)
+    result_type = ProgUtils.dynamic_infer_result_type(instruction_seq, state_var_types)
     
     # Verify the result type
     assert result_type == ProgUtils.TYPE_INT, \
@@ -211,7 +211,7 @@ def test_infer_type_count_items():
     state_var_types = [ProgUtils.TYPE_LIST_BOOL]
     
     # Call infer_result_type
-    result_type = ProgUtils.infer_result_type(instruction_seq, state_var_types)
+    result_type = ProgUtils.dynamic_infer_result_type(instruction_seq, state_var_types)
     
     # Verify the result type
     assert result_type == ProgUtils.TYPE_INT, \
@@ -221,7 +221,7 @@ def test_infer_type_count_items():
     state_var_types = [ProgUtils.TYPE_LIST_GRIDOBJECT]
     
     # Call infer_result_type
-    result_type = ProgUtils.infer_result_type(instruction_seq, state_var_types)
+    result_type = ProgUtils.dynamic_infer_result_type(instruction_seq, state_var_types)
     
     # Verify the result type
     assert result_type == ProgUtils.TYPE_INT, \
@@ -231,7 +231,7 @@ def test_infer_type_count_items():
     state_var_types = [ProgUtils.TYPE_LIST_PIXEL]
     
     # Call infer_result_type
-    result_type = ProgUtils.infer_result_type(instruction_seq, state_var_types)
+    result_type = ProgUtils.dynamic_infer_result_type(instruction_seq, state_var_types)
     
     # Verify the result type
     assert result_type == ProgUtils.TYPE_INT, \
@@ -260,7 +260,7 @@ def test_infer_type_count_values():
     state_var_types = [ProgUtils.TYPE_LIST_INT, ProgUtils.TYPE_LIST_INT]
     
     # Call infer_result_type
-    result_type = ProgUtils.infer_result_type(instruction_seq, state_var_types)
+    result_type = ProgUtils.dynamic_infer_result_type(instruction_seq, state_var_types)
     
     # Verify the result type
     assert result_type == ProgUtils.TYPE_LIST_INT, \
@@ -269,7 +269,7 @@ def test_infer_type_count_values():
     state_var_types = [ProgUtils.TYPE_LIST_INT, ProgUtils.TYPE_GRIDOBJECT]
 
     # Call infer_result_type
-    result_type = ProgUtils.infer_result_type(instruction_seq, state_var_types)
+    result_type = ProgUtils.dynamic_infer_result_type(instruction_seq, state_var_types)
 
     # Verify the result type
     assert result_type == ProgUtils.TYPE_LIST_INT, \
@@ -295,7 +295,7 @@ def test_infer_type_sin_half_pi():
     state_var_types = []
     
     # Call infer_result_type
-    result_type = ProgUtils.infer_result_type(instruction_seq, state_var_types)
+    result_type = ProgUtils.dynamic_infer_result_type(instruction_seq, state_var_types)
     
     # Verify the result type
     assert result_type == ProgUtils.TYPE_INT, \
@@ -314,7 +314,7 @@ def test_infer_type_sin_half_pi():
     state_var_types = [ProgUtils.TYPE_LIST_INT]
 
     # Call infer_result_type
-    result_type = ProgUtils.infer_result_type(instruction_seq, state_var_types)
+    result_type = ProgUtils.dynamic_infer_result_type(instruction_seq, state_var_types)
 
     # Verify the result type
     assert result_type == ProgUtils.TYPE_LIST_INT, \
@@ -343,7 +343,7 @@ def test_infer_type_addition():
     state_var_types = []
     
     # Call infer_result_type
-    result_type = ProgUtils.infer_result_type(instruction_seq, state_var_types)
+    result_type = ProgUtils.dynamic_infer_result_type(instruction_seq, state_var_types)
     
     # Verify the result type
     assert result_type == ProgUtils.TYPE_INT, \
@@ -367,7 +367,7 @@ def test_infer_type_addition():
     state_var_types = [ProgUtils.TYPE_INT, ProgUtils.TYPE_LIST_INT]
     
     # Call infer_result_type
-    result_type = ProgUtils.infer_result_type(instruction_seq, state_var_types)
+    result_type = ProgUtils.dynamic_infer_result_type(instruction_seq, state_var_types)
     
     # Verify the result type
     assert result_type == ProgUtils.TYPE_LIST_INT, \
@@ -404,7 +404,7 @@ def test_infer_type_switch():
     state_var_types = [ProgUtils.TYPE_LIST_BOOL, ProgUtils.TYPE_LIST_BOOL, ProgUtils.TYPE_INT, ProgUtils.TYPE_INT]
     
     # Call infer_result_type
-    result_type = ProgUtils.infer_result_type(instruction_seq, state_var_types)
+    result_type = ProgUtils.dynamic_infer_result_type(instruction_seq, state_var_types)
     
     # Verify the result type
     assert result_type == ProgUtils.TYPE_LIST_INT, \
@@ -442,7 +442,7 @@ def test_infer_type_switch():
     state_var_types = [ProgUtils.TYPE_LIST_BOOL, ProgUtils.TYPE_LIST_BOOL, ProgUtils.TYPE_LIST_BOOL, ProgUtils.TYPE_INT, ProgUtils.TYPE_INT, ProgUtils.TYPE_INT]
     
     # Call infer_result_type
-    result_type = ProgUtils.infer_result_type(instruction_seq, state_var_types)
+    result_type = ProgUtils.dynamic_infer_result_type(instruction_seq, state_var_types)
     
     # Verify the result type
     assert result_type == ProgUtils.TYPE_LIST_INT, \
@@ -470,7 +470,7 @@ def test_infer_type_keep():
     state_var_types = [ProgUtils.TYPE_LIST_GRIDOBJECT, ProgUtils.TYPE_LIST_BOOL]
     
     # Call infer_result_type
-    result_type = ProgUtils.infer_result_type(instruction_seq, state_var_types)
+    result_type = ProgUtils.dynamic_infer_result_type(instruction_seq, state_var_types)
     
     # Verify the result type
     assert result_type == ProgUtils.TYPE_LIST_GRIDOBJECT, \
@@ -480,7 +480,7 @@ def test_infer_type_keep():
     state_var_types = [ProgUtils.TYPE_LIST_INT, ProgUtils.TYPE_LIST_BOOL]
     
     # Call infer_result_type
-    result_type = ProgUtils.infer_result_type(instruction_seq, state_var_types)
+    result_type = ProgUtils.dynamic_infer_result_type(instruction_seq, state_var_types)
     
     # Verify the result type
     assert result_type == ProgUtils.TYPE_LIST_INT, \
@@ -509,7 +509,7 @@ def test_infer_type_set_difference():
     state_var_types = [ProgUtils.TYPE_LIST_INT, ProgUtils.TYPE_LIST_INT]
     
     # Call infer_result_type
-    result_type = ProgUtils.infer_result_type(instruction_seq, state_var_types)
+    result_type = ProgUtils.dynamic_infer_result_type(instruction_seq, state_var_types)
     
     # Verify the result type
     assert result_type == ProgUtils.TYPE_LIST_INT, \
@@ -519,7 +519,7 @@ def test_infer_type_set_difference():
     state_var_types = [ProgUtils.TYPE_LIST_PIXEL, ProgUtils.TYPE_LIST_PIXEL]
     
     # Call infer_result_type
-    result_type = ProgUtils.infer_result_type(instruction_seq, state_var_types)
+    result_type = ProgUtils.dynamic_infer_result_type(instruction_seq, state_var_types)
     
     # Verify the result type
     assert result_type == ProgUtils.TYPE_LIST_PIXEL, \
@@ -554,7 +554,7 @@ def test_infer_type_set_pixels():
     state_var_types = [ProgUtils.TYPE_LIST_GRIDOBJECT, ProgUtils.TYPE_INT, ProgUtils.TYPE_INT, ProgUtils.TYPE_INT]
     
     # Call infer_result_type
-    result_type = ProgUtils.infer_result_type(instruction_seq, state_var_types)
+    result_type = ProgUtils.dynamic_infer_result_type(instruction_seq, state_var_types)
     
     # Verify the result type
     assert result_type == ProgUtils.TYPE_LIST_GRIDOBJECT, \
@@ -564,7 +564,7 @@ def test_infer_type_set_pixels():
     state_var_types = [ProgUtils.TYPE_GRIDOBJECT, ProgUtils.TYPE_LIST_INT, ProgUtils.TYPE_LIST_INT, ProgUtils.TYPE_LIST_INT]
     
     # Call infer_result_type
-    result_type = ProgUtils.infer_result_type(instruction_seq, state_var_types)
+    result_type = ProgUtils.dynamic_infer_result_type(instruction_seq, state_var_types)
     
     # Verify the result type
     assert result_type == ProgUtils.TYPE_GRIDOBJECT, \
@@ -602,7 +602,7 @@ def test_infer_type_crop():
     state_var_types = [ProgUtils.TYPE_LIST_GRIDOBJECT]
     
     # Call infer_result_type
-    result_type = ProgUtils.infer_result_type(instruction_seq, state_var_types)
+    result_type = ProgUtils.dynamic_infer_result_type(instruction_seq, state_var_types)
     
     # Verify the result type
     assert result_type == ProgUtils.TYPE_LIST_GRIDOBJECT, \
@@ -612,8 +612,90 @@ def test_infer_type_crop():
     state_var_types = [ProgUtils.TYPE_GRIDOBJECT]
     
     # Call infer_result_type
-    result_type = ProgUtils.infer_result_type(instruction_seq, state_var_types)
+    result_type = ProgUtils.dynamic_infer_result_type(instruction_seq, state_var_types)
     
     # Verify the result type
     assert result_type == ProgUtils.TYPE_GRIDOBJECT, \
         f"Expected TYPE_GRIDOBJECT ({ProgUtils.TYPE_GRIDOBJECT}), got {result_type}"
+
+def test_convert_user_format_to_tuple_format():
+
+    # This program is: Object Completion1
+    prog = [
+        'get_objects(N+0)',
+        'get_bg(N+0)',
+        'del(N+0)',
+        'index(N+1.c, 0)',
+        'equal(N+0.c, N+2)',
+        'del(N+2)',
+        'switch(N+2, "param1", N+0.c)',
+        'del(N+2)',
+        'set_color(N+0, N+2)',
+        'del(N+0)',
+        'del(N+1)',
+        'rebuild_grid(N+0, N+1)',
+        'del(N+0)',
+        'del(N+0)'
+    ]
+
+    tuple_fmt_prog = ProgUtils.convert_user_format_to_tuple_format(prog, len(DSL.semantics))
+
+    expected_tuples = [
+        ('get_objects', [57]),
+        ('get_bg', [57]),
+        ('del', [57]),
+        ('index', [(58, '.c'), 0]),
+        ('equal', [(57, '.c'), 59]),
+        ('del', [59]),
+        ('switch', [59, 'param1', (57, '.c')]),
+        ('del', [59]),
+        ('set_color', [57, 59]),
+        ('del', [57]),
+        ('del', [58]),
+        ('rebuild_grid', [57, 58]),
+        ('del', [57]),
+        ('del', [57])
+    ]
+
+    assert tuple_fmt_prog == expected_tuples, f"Expected {expected_tuples}, but got {tuple_fmt_prog}"
+
+def test_convert_user_instruction_to_token_seq():
+
+    # This program is: Object Completion1
+    prog = [
+        'get_objects(N+0)',
+        'get_bg(N+0)',
+        'del(N+0)',
+        'index(N+1.c, 0)',
+        'equal(N+0.c, N+2)',
+        'del(N+2)',
+        'switch(N+2, "param1", N+0.c)',
+        'del(N+2)',
+        'set_color(N+0, N+2)',
+        'del(N+0)',
+        'del(N+1)',
+        'rebuild_grid(N+0, N+1)',
+        'del(N+0)',
+        'del(N+0)'
+    ]
+
+    token_fmt_prog = ProgUtils.convert_user_format_to_token_seq(prog)
+
+    expected_tokens = [
+        [0,15,1,61,3],
+        [0,16,1,61,3],
+        [0,51,1,61,3],
+        [0,22,1,62,54,2,4,3],
+        [0,18,1,61,54,2,63,3],
+        [0,51,1,63,3],
+        [0,21,1,63,2,"param1",2,61,54,3],
+        [0,51,1,63,3],
+        [0,41,1,61,2,63,3],
+        [0,51,1,61,3],
+        [0,51,1,62,3],
+        [0,48,1,61,2,62,3],
+        [0,51,1,61,3],
+        [0,51,1,61,3]
+    ]
+
+    assert token_fmt_prog == expected_tokens, f"Expected {expected_tokens}, but got {token_fmt_prog}"
