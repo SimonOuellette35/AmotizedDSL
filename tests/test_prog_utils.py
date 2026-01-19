@@ -699,3 +699,97 @@ def test_convert_user_instruction_to_token_seq():
     ]
 
     assert token_fmt_prog == expected_tokens, f"Expected {expected_tokens}, but got {token_fmt_prog}"
+
+def test_convert_user_format_to_token_seq_switch_statement():
+
+    prog1 = [
+        'add(N+0.x, 1)', 
+        'set_pixels(N+0, N+1, N+0.y, N+0.c)',
+        'del(N+1)',
+        'del(N+0)',
+        'set_pixels(N+0, 0, N+0.y, 0)',
+        'del(N+0)',
+        'crop(N+0, 0, 0, N+0.max_x, N+0.height)',
+        'del(N+0)',
+        'equal(N+0.c, param1)',
+        'equal(N+0.c, param2)',
+        'switch(N+1, N+2, param2, param1, N+0.c)',
+        'del(N+1)',
+        'del(N+1)',
+        'set_pixels(N+0, N+0.x, N+0.y, N+1)',
+        'del(N+0)',
+        'del(N+0)'
+    ]
+
+    token_fmt_prog1 = ProgUtils.convert_user_format_to_token_seq(prog1)
+
+    expected_tokens1 = [
+        [0, 24, 1, 61, 52, 2, 5, 3],
+        [0, 38, 1, 61, 2, 62, 2, 61, 53, 2, 61, 54, 3],
+        [0, 51, 1, 62, 3],
+        [0, 51, 1, 61, 3],
+        [0, 38, 1, 61, 2, 4, 2, 61, 53, 2, 4, 3],
+        [0, 51, 1, 61, 3],
+        [0, 36, 1, 61, 2, 4, 2, 4, 2, 61, 55, 2, 61, 58, 3],
+        [0, 51, 1, 61, 3],
+        [0, 18, 1, 61, 54, 2, 'param1', 3],
+        [0, 18, 1, 61, 54, 2, 'param2', 3],
+        [0, 21, 1, 62, 2, 63, 2, 'param2', 2, 'param1', 2, 61, 54, 3],
+        [0, 51, 1, 62, 3],
+        [0, 51, 1, 62, 3],
+        [0, 38, 1, 61, 2, 61, 52, 2, 61, 53, 2, 62, 3],
+        [0, 51, 1, 61, 3],
+        [0, 51, 1, 61, 3]
+    ]
+
+    assert token_fmt_prog1 == expected_tokens1, f"Expected {expected_tokens1}, but got {token_fmt_prog1}"
+
+    prog2 = [
+        'div(N+0.width, 2)',
+        'colorOf(N+0, N+1, N+1)',
+        'add(N+1, 1)',
+        'del(N+1)',
+        'colorOf(N+0, N+2, N+2)',
+        'add(N+2, 1)',
+        'del(N+2)',
+        'colorOf(N+0, N+3, N+3)',
+        'del(N+3)',
+        'equal(N+0.c, N+1)',
+        'equal(N+0.c, N+2)',
+        'switch(N+4, N+5, N+2, N+3, N+1)',
+        'del(N+1)',
+        'del(N+1)',
+        'del(N+1)',
+        'del(N+1)',
+        'del(N+1)',
+        'set_color(N+0, N+1)',
+        'del(N+0)',
+        'del(N+0)'
+    ]
+
+    token_fmt_prog2 = ProgUtils.convert_user_format_to_token_seq(prog2)
+
+    expected_tokens2 = [
+      [0, 26, 1, 61, 57, 2, 6, 3],
+      [0, 37, 1, 61, 2, 62, 2, 62, 3],
+      [0, 24, 1, 62, 2, 5, 3],
+      [0, 51, 1, 62, 3],
+      [0, 37, 1, 61, 2, 63, 2, 63, 3],
+      [0, 24, 1, 63, 2, 5, 3],
+      [0, 51, 1, 63, 3],
+      [0, 37, 1, 61, 2, 64, 2, 64, 3],
+      [0, 51, 1, 64, 3],
+      [0, 18, 1, 61, 54, 2, 62, 3],
+      [0, 18, 1, 61, 54, 2, 63, 3],
+      [0, 21, 1, 65, 2, 66, 2, 63, 2, 64, 2, 62, 3],
+      [0, 51, 1, 62, 3],
+      [0, 51, 1, 62, 3],
+      [0, 51, 1, 62, 3],
+      [0, 51, 1, 62, 3],
+      [0, 51, 1, 62, 3],
+      [0, 41, 1, 61, 2, 62, 3],
+      [0, 51, 1, 61, 3],
+      [0, 51, 1, 61, 3]
+    ]
+
+    assert token_fmt_prog2 == expected_tokens2, f"Expected {expected_tokens2}, but got {token_fmt_prog2}"
