@@ -68,7 +68,7 @@ def execute_step(step_token_seq, states, primitives, object_mask=None, prim_cach
     '''
     @param step_token_seq: a tuple of tokens (integers) representing the step to execute.
     @param state: [k, num states, variable]
-    @param object_mask: Optional object mask (2D numpy array or list) for get_objects/get_bg
+    @param object_mask: Optional list of k object masks (each is a 2D numpy array or list) for get_objects/get_bg
     @param prim_cache: Cache dict for primitive index -> (name, func) lookups
     @param attr_cache: Cache dict for attribute index -> (name, func) lookups
 
@@ -91,19 +91,11 @@ def execute_step(step_token_seq, states, primitives, object_mask=None, prim_cach
     # Cache semantics length to avoid repeated lookups
     semantics_len = len(primitives.semantics)
     
-    # Pre-process object_mask once if needed
-    obj_mask = None
     needs_obj_mask = (prim_name == 'get_objects' or prim_name == 'get_bg')
-    if needs_obj_mask and object_mask is not None:
-        if isinstance(object_mask, np.ndarray):
-            if object_mask.size > 0:
-                obj_mask = object_mask.tolist()
-        elif isinstance(object_mask, list) and len(object_mask) > 0:
-            obj_mask = object_mask
 
     result = []
     is_del = False
-    for example in states:
+    for k_idx, example in enumerate(states):
         resolved_args = []
         example_result = None
 
@@ -137,16 +129,23 @@ def execute_step(step_token_seq, states, primitives, object_mask=None, prim_cach
                 # Resolve the grid argument
                 grid = resolve_arg(token_args[0], example, primitives, semantics_len, attr_cache, verbose)
             
-            # Use pre-processed obj_mask or create empty one if needed
-            if obj_mask is None:
+            # Get the object mask for this example (k_idx)
+            if object_mask is not None and k_idx < len(object_mask):
+                obj_mask = object_mask[k_idx]
+                # Convert numpy array to list if needed
+                if isinstance(obj_mask, np.ndarray):
+                    current_obj_mask = obj_mask.tolist()
+                elif isinstance(obj_mask, list):
+                    current_obj_mask = obj_mask
+                else:
+                    current_obj_mask = obj_mask
+            else:
                 # If no object_mask provided, create an empty one (all zeros)
                 if isinstance(grid, primitives.GridObject):
                     grid_array = grid.to_grid()
                     current_obj_mask = [[0] * grid_array.shape[1] for _ in range(grid_array.shape[0])]
                 else:
                     current_obj_mask = [[0] * len(grid[0]) for _ in range(len(grid))]
-            else:
-                current_obj_mask = obj_mask
             
             # Execute get_objects or get_bg with grid and object_mask
             example_result = prim_func(grid, current_obj_mask)
@@ -197,7 +196,7 @@ def execute(token_seq_list, state, primitives, object_mask=None, debug_info=None
 
     @param token_seq_list: a list of token sequences representing the whole program (decoder output format).
     @param primitives: the DSL
-    @param object_mask: Optional object mask (2D numpy array or list) for get_objects/get_bg
+    @param object_mask: Optional list of k object masks (each is a 2D numpy array or list) for get_objects/get_bg
 
     @return the output of the program, necessarily a Grid.
     '''
