@@ -12,18 +12,6 @@ In summary, the way this DSL works and how I structure my program synthesis outp
 
 Each instruction step outputs exactly 1 variable (though it can be a list) that gets added to the program state, so that it can be referred to by subsequent instruction steps.
 
-It helps to understand the larger context of how my synthesis algorithm works, to understand the design choices for this DSL:
-
-My program inference/search process is an iterative loop (maybe recursive is a better word, since each time I get access to the output of the previous step) of:
-
-1 - token sequence prediction of an instruction step, conditional on the program state so far
-
-2 - executing that instruction step to generate the output variable
-
-3 - adding the tokenized, then encoded variable to my encoder memory
-
-4 - repeating until an "end of program" sequence is generated, or when the search algorithm decides it's completed.
-
 ## DSL.GridObject and DSL.Pixel classes
 
 The GridObject class in DSL.py represents an ARC-AGI grid or sub-grid. Aside from containing the cells (list of Pixel instances), it also has a height attribute, a width attribute, a ul_x (upper left x coordinate), and a ul_y (upper left y coordinate) attribute. While these upper left corner coordinates are (0, 0) for a full ARC-AGI grid, their value is can be non-zero in the case of sub-grids. For example, sub-grids can be a way to represent objects in a grid.
@@ -36,23 +24,11 @@ The Pixel class is a simple data structure representing a cell or pixel in a gri
 
 ## Building and executing a program
 
-### Special tokens
-
-This program syntax uses the following special tokens:
- 
-> SOS_TOKEN = 0           # Start of sentence
-
-> SOP_TOKEN = 1           # Start of parameters
-
-> ARG_SEP_TOKEN = 2       # Argument separator
-
-> EOS_TOKEN = 3           # End of sentence
-
 ### Reference IDs & Object attributes
 
-Referring to previously generated state variables is done by using a token value equal to N+idx, where N is the number of primitives + the number of special tokens, and idx is the 0-indexed number of the state variable. The output of the first instruction step is N+1, the output of the second instruction step is N+2, and so forth. N+0 is the input grid itself. This token value, or "reference ID", can be used anywhere there is a primitive argument to be set.
+In the task program ground truths you will see N+0, N+1, etc. These are references to variables in the program stack, N+0 because the first variable, N+1 the second one, etc. The reason for the N+<idx> naming is that under the hood, each primitive gets convert to token whose value is an integer based on its index in the DSL. But object references are not primitives in the DSL, so their token value is N+<idx>, where N is the number of primitives in the DSL. So if there are 50 primitives in the DSL, the first variable in the stack can be referred by token value 51, etc.
 
-Note that reference ID are essentially objects, in an object-oriented programming sense. They can either be used as is, when the argument type is of the object being referred to (e.g., a Grid instance), but it is also possible to access some of their attributes. The attributes are at the end of the DSL list:
+Note that GridObject stack variables are essentially objects, in an object-oriented programming sense. They can either be used as is, when the primitive takes as argument a GridObject, or you can access some of their attributes. The attributes are at the end of the DSL list:
 
 > Object attributes
 
@@ -74,23 +50,11 @@ Note that reference ID are essentially objects, in an object-oriented programmin
 
 > '.ul_y': get_ul_y
 
-In order to use an attribute, you simply use the corresponding token value of the attribute right after the reference ID.
-
-For example, [39, 36] will be N+0.height if 39 is the N+0 reference ID and 36 is the token ID corresponding to '.height'.
-
-This means that an instruction step that consists of cropping some grid B's (reference ID N+1=40) upper left region based on the dimensions of some grid A (reference ID N+0=39) would look like this:
-
-[<SOS_token>, 'crop', <SOP_TOKEN>, 40, <ARG_SEP_TOKEN>, 4, <ARG_SEP_TOKEN>, 4, <ARG_SEP_TOKEN>, 39, 35, <ARG_SEP_TOKEN>, 39, 36, <EOS_TOKEN>]
-
-Because the arguments of the crop primitive are (grid to crop, from_x, from_y, to_x, to_y)
-
-Note: token ID 4 corresponds to the constant 0. Tokens 35 and 36 are assumed to map to '.width' and '.height' respectively.
+So you can write N+0.ul_x to retrieve the x coordinate of the upper-left corner of the object.
 
 ### Structure of a program
 
-A program is a list of instruction steps, which themselves are a list a tokens. So a program is a list of lists of integer values representing tokens, each mapping to DSL elements or special tokens.
-
-The last instruction step of a program can signify the end of the program by being a list of <EOS_TOKEN> tokens.
+A program is a list of instruction steps.
 
 Each instruction step outputs exactly 1 state variable.
 
@@ -98,24 +62,24 @@ Each instruction step can access any of the state variables generated by the pre
 
 _prog_utils.py_ is a utility file to convert programs between different representations:
 
-    This class implements utility functions that manipulate program representations. In particular, it offers conversion methods between the
-    different program representations. They are:
+    1 - "User" format: end-user format to write ground truths programs (such as in [Task DB](https://github.com/SimonOuellette35/ARC-AGI_TaskDB_Tools)). Things like:
+        * "get_objects(N+0)"
+        * "index(N+1, 0)"
+        * "del(N+1)"
+        * "div(N+1.width, 2)"
 
-    1 - hand-written representation: this format exists to facilitate manually describing programs. It is a list of instruction steps forming a
-    whole program. Each instruction step is a tuple of (primitive, arguments). In hand-written representation, each token is a text string,
-    with the exception of reference IDs that are integers.
-
-    2 - intermediate representation: in this format, we still have tuples as in hand-written representation, but the text strings have been resolved
+    2 - "Tuple" format: in this format, we still have tuples as in hand-written representation, but the text strings have been resolved
     to the indices in the DSL for each primitive. This format is used as input to the execute_step function in the program interpreter, because it's 
-    easier to process.
+    easier to process. This is an "under-the-hood" format, a typical user does not need to understand this format.
 
-    3 - token sequence: this format is directly what is outputted by the decoding process. Here, the token IDs (integers) are offset relative to the
-    primitive indices in the DSL, because there are special tokens to help structure the output. The token sequence format is, for each instruction
-    step (decoding phase):
+    3 - "Token" format: this format is directly what is outputted by the decoding process of a transformer. Here, the token IDs (integers) are offset relative to the
+    primitive indices in the DSL, because there are special tokens to help structure the output. The typical user probably doesn't need to be concerned with this format.
+    The token sequence format is, for each instruction step (decoding phase):
 
         [SOS, primitive, SOP, arg1(, attr), ARG_SEP, arg2(, attr), ARG_SEP, ..., EOS]
 
-    4 - LLM format: this format is used to interface with an LLM.
+    4 - "LLM" format: this format is used to interface with an LLM. It is a compact form of user-input format, text-based, intended to be optimal
+    for concise LLM prompts.
 
 ## Memory management
 
@@ -123,36 +87,13 @@ Because in theory the program state keeps growing as the program grows, there is
 
 This process also serves an additional purpose: it removes noise from the program state and forces the neural network to focus on state variables that matter at each stage. We found that this was crucial to help with generalization. You can think of it as a more restrictive attention system, similar to the limited scope of conscious working memory. By training the model to be extremely sparse with its memory, it learns to focus on what matters for generalization. This idea has been explored in the machine learning literature, for example see ["The Consciousness Prior"](https://arxiv.org/abs/1709.08568).
 
-This is why a typical program contains a lot of del instructions, which are of format: [<SOS_TOKEN>, 'del', <SOP_TOKEN>, N+idx, <EOS_TOKEN>] where N is the total number of primitives in the DSL, and idx is the variable index to delete. (See reference IDs in section "Building and executing a program")
+This is why a typical program contains a lot of del instructions. Doing del(N+0), for example, removes the first variable from the stack -- which re-indexes all subsequent variables. The second variable (N+1) now becomes the first variable (N+0), and so forth.
 
 ### Execution of a program
 
 To execute a program, use the _program_interpreter.py_ file. Here are the most commonly used methods in this file:
-- execute(token_seq_list, state, primitives): executes a whole program. _token_seq_list_ is a list of lists of integers, representing the program in "token sequence" format. _state_ is a list of (non-tokenized) Python variables representing the initial state of the program. In ARC-AGI this means the input grids. So, for a whole program, _state_ should be a list of 1 element: a _DSL.Grid_ instance for an input grid. Note that currently, programs execute only on one example at a time (though I maybe generalize this to the whole demonstration going forward). _primitives_ is simply the whole DSL package, allow to choose between different DSLs if needed.
+- execute(token_seq_list, state, primitives): executes a whole program. _token_seq_list_ is a list of lists of integers, representing the program in "token sequence" format. _state_ is a list of (non-tokenized) Python variables representing the initial state of the program. In ARC-AGI this means the input grids. So, for a whole program, _state_ should be a list of 1 element: a _DSL.GridObject_ instance for an input grid. Note that currently, programs execute only on one example at a time (though I maybe generalize this to the whole demonstration going forward). _primitives_ is simply the whole DSL package, allow to choose between different DSLs if needed.
 - execute_instruction_step: executes only an instruction step sequence. _intermediate_state_ is the current list of all states, including the original input grid and all outputs of previous instruction steps.
-
-Looking at the whole program execution code can be informative in understanding how this DSL is intended to be used:
-
-    for step_idx, _ in enumerate(token_seq_list):
-        token_tuple = ProgUtils.convert_token_seq_to_token_tuple(token_seq_list[step_idx], primitives)
-
-        # If end of program instruction step, return previous output.
-        if token_tuple[0] == -1:
-            return state[-1]
-        
-        output = execute_step(token_tuple, state, primitives)
-
-        if isinstance(output, DeleteAction):
-            idx_to_remove = output.state_idx
-
-            # Delete the element at idx_to_remove from the state
-            state = [s for i, s in enumerate(state) if i != idx_to_remove]
-        else:
-            state.append(output)
-
-    return state[-1]
-
-Each step is executed, if the special 'del' step was executed, we remove the specified element from the current state "memory". Otherwise, we add the output of the current step to this same state "memory", and move on to the next step.
 
 ### Example
 
@@ -206,7 +147,7 @@ It is worth going into detail as to how the switch statement works, because it i
 
 **switch(N+3, N+1, N+2)** here N+3 refers to a list of Booleans, for example \[False, True\]. N+1 refers to a list of integers, for example \[5, 9]. N+2 refers to, for example, \[6, 0]. The logic here is that elements of the _conditions_ whose value is True will contain the corresponding elements (by index) of the N+1 _operations_ argument, otherwise they will contain the corresponding element of the _otherwise_ argument. So this would return: \[6, 9\].
 
-**switch(\[N+1, N+2\], \[0, 1\], 2)** this is an if/elif/else statement. N+1 and N+2 must be lists of the same number of elements. It iterates through these, and where N+1 is True, will return 0, where N+2 is True (and N+1 isn't), will return 1. If both are False, it will return the _otherwise_ value of 2.
+**switch(N+1, N+2, 0, 1, 2)** this is an if/elif/else statement. N+1 and N+2 must be lists of the same number of elements. It iterates through these, and where N+1 is True, will return 0, where N+2 is True (and N+1 isn't), will return 1. If both are False, it will return the _otherwise_ value of 2.
 
 Example:
 
@@ -216,7 +157,7 @@ Example:
 
     Will return: [0, 2, 1]
     
-**switch(\[N+1, N+2\], \[N+3, N+4\], N+5)** the most complex form of switch: if/elif/else statement where all arguments are lists. As above, we check the value of each element of _conditions_ in order from left to right, looking for the first True value. That condition index determines which value of _operations_ is returned, as above. But, because here we have lists as individual _operations_, we also must lookup the element by index based on the element index of the condition that was True. And as usual, if none of the _conditions_ are True for a given element index, we return the corresponding element from _otherwise_.
+**switch[N+1, N+2, N+3, N+4, N+5)** the most complex form of switch: if/elif/else statement where all arguments are lists. As above, we check the value of each element of _conditions_ in order from left to right, looking for the first True value. That condition index determines which value of _operations_ is returned, as above. But, because here we have lists as individual _operations_, we also must lookup the element by index based on the element index of the condition that was True. And as usual, if none of the _conditions_ are True for a given element index, we return the corresponding element from _otherwise_.
 
 Example:
 
