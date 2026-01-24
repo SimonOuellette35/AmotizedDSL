@@ -106,14 +106,14 @@ See _example.py_ for executable code with plenty of examples. This section is on
 An example program that shifts all pixels to the right (without wrapping, and preserving the original grid width) in a grid, in "hand-written representation":
 
     program = [
-        ('add', [(N+0, '.x'), 1]),
-        ('set_pixels', [N+0, N+1, (N+0, '.y'), (N+0, '.c')]),
-        ('del', [N+1]),
-        ('set_pixels', [N+1, 0, (N+1, '.y'), 0]),
-        ('del', [N+1]),
-        ('crop', [N+1, 0, 0, (N+0, '.width'), (N+0, '.height')]),
-        ('del', [N+0]),
-        ('del', [N+0])
+        add(N+0.x, 1),
+        set_pixels(N+0, N+1, N+0.y, N+0.c),
+        del(N+1),
+        set_pixels(N+1, 0, N+1.y, 0),
+        del(N+1),
+        crop(N+1, 0, 0, N+0.width, N+0.height),
+        del(N+0),
+        del(N+0)
     ]
 
 You can read it as follows:
