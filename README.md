@@ -12,6 +12,8 @@ In summary, the way this DSL works and how I structure my program synthesis outp
 
 Each instruction step outputs exactly 1 variable (though it can be a list) that gets added to the program state, so that it can be referred to by subsequent instruction steps.
 
+To visualize many examples of program ground truths and to help with writing AmotizedDSL programs, I suggest looking at the project: [Task DB](https://github.com/SimonOuellette35/ARC-AGI_TaskDB_Tools)
+
 ## DSL.GridObject and DSL.Pixel classes
 
 The GridObject class in DSL.py represents an ARC-AGI grid or sub-grid. Aside from containing the cells (list of Pixel instances), it also has a height attribute, a width attribute, a ul_x (upper left x coordinate), and a ul_y (upper left y coordinate) attribute. While these upper left corner coordinates are (0, 0) for a full ARC-AGI grid, their value is can be non-zero in the case of sub-grids. For example, sub-grids can be a way to represent objects in a grid.
