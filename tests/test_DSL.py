@@ -276,3 +276,33 @@ def test_get_x_get_y_get_color():
     pixels = [Pixel(0, 0, 1), Pixel(1, 0, 2)]
     assert DSL.get_x(pixels) == [0, 1] and DSL.get_color(pixels) == [1, 2]
 
+def test_gather():
+    data_list1 = [[1,2,3], [4,5,6], [7,8,9]]
+    data_list2 = [
+                    [
+                        [1,2,3], [3,4,5], [5,6,7]
+                    ], 
+                    [
+                        [2,4,5],[6,8,9],[10,12,13]
+                    ], 
+                    [
+                        [1,3,4],[5,7,8], [9,11,12]
+                    ]
+                ]
+
+    sort_list1 = 1
+    sort_list2 = [0, 2]
+    sort_list3 = [[0, 1, 2], [1, 1, 1], [2, 2, 2]]
+
+    r1 = DSL.gather(data_list1, sort_list1)
+    assert r1 == [2, 5, 8]
+    r2 = DSL.gather(data_list1, sort_list2)
+    assert r2 == [[1, 3], [4, 6], [7, 9]]
+    r3 = DSL.gather(data_list2, sort_list1)
+    assert r3 == [[2,4,6], [4,8,12], [3,7,11]]
+    r4 = DSL.gather(data_list2, sort_list2)
+    assert r4 == [[1, 3, 3, 5, 5, 7], [2, 5, 6, 9, 10, 13], [1, 4, 5, 8, 9, 12]]
+
+
+    r5 = DSL.gather(data_list2, sort_list3)
+    assert r5 == [[1, 4, 7], [4, 8, 12], [4, 8, 12]]

@@ -1458,6 +1458,42 @@ def sort_by(data_list: Union[List[T], List[List[T]]], sort_list: Union[List[int]
         
         return sorted_data_list
 
+def gather(data_list: Union[List[List[T]], List[List[List[T]]]], idx: Union[int, List[int], List[List[int]]]) -> Union[List[T], List[List[T]]]:
+    
+    output = []
+    for inner_list in data_list:
+        if isinstance(inner_list[0], list):
+            # data_list is a list of list of list
+            if isinstance(idx, int):
+                inner_output = []
+                for inner_inner_list in inner_list:
+                    inner_output.append(inner_inner_list[idx])
+
+                output.append(inner_output)
+            elif isinstance(idx[0], int):
+                inner_output = []
+                for inner_inner_list in inner_list:
+                    for inner_idx in idx:
+                        inner_output.append(inner_inner_list[inner_idx])
+
+                output.append(inner_output)
+
+            else:
+                indices = idx[len(output)]  # one index per inner-inner list
+                inner_output = [inner_inner_list[i] for inner_inner_list, i in zip(inner_list, indices)]
+                output.append(inner_output)
+        else:
+            # data_list is a list of list
+            if isinstance(idx, int):
+                output.append(inner_list[idx])
+            else:
+                output_list = []
+                for inner_idx in idx:
+                    output_list.append(inner_list[inner_idx])
+
+                output.append(output_list)
+    
+    return output
 
 def set_pixels(target_grid: Union[GridObject, List[GridObject]], 
                set_x: Union[DIM, List[DIM], List[List[DIM]]], 
@@ -1782,6 +1818,7 @@ arg_counts = [
     1,  # neighbours4
     1,  # neighbours8
     2,  # sort_by
+    2,  # gather
     1,
     1,
     1,
@@ -1850,6 +1887,7 @@ semantics = {
     'neighbours4': neighbours4,
     'neighbours8': neighbours8,
     'sort_by': sort_by,
+    'gather': gather,
     'del': lambda x: x,       # This is actually a special primitive that is implemented at the program execution level
                               # where state memory management is possible.
 
