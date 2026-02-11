@@ -482,22 +482,38 @@ def get_bg(grid: GridObject, obj_mask: List[List[int]]) -> GridObject:
         return GridObject([])
 
 
-def get_width(g: Union[GridObject, List[GridObject]]) -> Union[DIM, List[DIM]]:
+def get_width(g: Union[GridObject, List[GridObject], List[List[GridObject]]]) -> Union[DIM, List[DIM]]:
     if isinstance(g, GridObject):
         return g.width
-    else:
+    elif isinstance(g[0], GridObject):
         widths = []
         for grid in g:
             widths.append(grid.width)
         return widths
+    else:
+        widths = []
+        for subg in g:
+            sub_widths = []
+            for grid in subg:
+                sub_widths.append(grid.width)
+            widths.append(sub_widths)
+        return widths
 
-def get_height(g: Union[GridObject, List[GridObject]]) -> Union[DIM, List[DIM]]:
+def get_height(g: Union[GridObject, List[GridObject], List[List[GridObject]]]) -> Union[DIM, List[DIM]]:
     if isinstance(g, GridObject):
         return g.height
-    else:
+    elif isinstance(g[0], GridObject):
         heights = []
         for grid in g:
             heights.append(grid.height)
+        return heights
+    else:
+        heights = []
+        for subg in g:
+            sub_heights = []
+            for grid in subg:
+                sub_heights.append(grid.height)
+            heights.append(sub_heights)
         return heights
 
 def unique(data: Union[List[int], List[List[int]], List[List[List[int]]]]) -> Union[List[int], List[List[int]], List[List[List[int]]]]:
@@ -1730,41 +1746,75 @@ def crop(g: Union[GridObject, List[GridObject]], x1: Union[int, List[int]], y1: 
 
         return output_grids
 
-def max_x(g: Union[GridObject, List[GridObject]]) -> Union[DIM, List[DIM]]:
-    if isinstance(g, List):
+def max_x(g: Union[GridObject, List[GridObject], List[List[GridObject]]]) -> Union[DIM, List[DIM]]:
+    if isinstance(g, GridObject):
+        return g.max_x
+    elif isinstance(g[0], GridObject):
         output = []
         for tmp_g in g:
             output.append(tmp_g.max_x)
         return output
     else:
-        return g.max_x
+        output = []
+        for subg in g:
+            suboutput = []
+            for grid in subg:
+                suboutput.append(grid.max_x)
+            output.append(suboutput)
+        return output
 
-def max_y(g: Union[GridObject, List[GridObject]]) -> Union[DIM, List[DIM]]:
-    if isinstance(g, List):
+def max_y(g: Union[GridObject, List[GridObject], List[List[GridObject]]]) -> Union[DIM, List[DIM]]:
+    if isinstance(g, GridObject):
+        return g.max_y
+    elif isinstance(g[0], GridObject):
         output = []
         for tmp_g in g:
             output.append(tmp_g.max_y)
         return output
     else:
-        return g.max_y
+        output = []
+        for subg in g:
+            suboutput = []
+            for grid in subg:
+                suboutput.append(grid.max_y)
+            output.append(suboutput)
+        return output
+        
 
-def get_ul_x(g: Union[GridObject, List[GridObject]]) -> Union[DIM, List[DIM]]:
+def get_ul_x(g: Union[GridObject, List[GridObject], List[List[GridObject]]]) -> Union[DIM, List[DIM]]:
     if isinstance(g, GridObject):
         return g.ul_x
-    else:
+    elif isinstance(g[0], GridObject):
         output = []
         for grid in g:
             output.append(grid.ul_x)
         return output
+    else:
+        output = []
+        for subg in g:
+            suboutput = []
+            for grid in subg:
+                suboutput.append(grid.ul_x)
+            output.append(suboutput)
+        return output
 
-def get_ul_y(g: Union[GridObject, List[GridObject]]) -> Union[DIM, List[DIM]]:
+def get_ul_y(g: Union[GridObject, List[GridObject], List[List[GridObject]]]) -> Union[DIM, List[DIM]]:
     if isinstance(g, GridObject):
         return g.ul_y
-    else:
+    elif isinstance(g[0], GridObject):
         output = []
         for grid in g:
             output.append(grid.ul_y)
         return output
+    else:
+        output = []
+        for subg in g:
+            suboutput = []
+            for grid in subg:
+                suboutput.append(grid.ul_y)
+            output.append(suboutput)
+        return output
+
    
 
 # =================================================================== Number of arguments for each primitive =================================================================

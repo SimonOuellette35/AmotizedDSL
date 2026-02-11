@@ -255,6 +255,19 @@ def test_max_x_max_y_ul():
     assert DSL.max_x(grid) == 1 and DSL.max_y(grid) == 1
     assert DSL.get_ul_x(grid) == 0 and DSL.get_ul_y(grid) == 0
 
+    # list of GridObjects
+    grid_a = GridObject.from_grid([[1, 2], [3, 4]])   # 2x2 -> max_x=1, max_y=1
+    grid_b = GridObject.from_grid([[1, 2, 3]])         # 3x1 -> max_x=2, max_y=0
+    grid_c = GridObject.from_grid([[1], [2]])          # 1x2 -> max_x=0, max_y=1
+    list_objs = [grid_a, grid_b, grid_c]
+    assert DSL.max_x(list_objs) == [1, 2, 0] and DSL.max_y(list_objs) == [1, 0, 1]
+    assert DSL.get_ul_x(list_objs) == [0, 0, 0] and DSL.get_ul_y(list_objs) == [0, 0, 0]
+
+    # list of list of GridObjects
+    list_list_objs = [[grid_a, grid_b], [grid_c]]
+    assert DSL.max_x(list_list_objs) == [[1, 2], [0]] and DSL.max_y(list_list_objs) == [[1, 0], [1]]
+    assert DSL.get_ul_x(list_list_objs) == [[0, 0], [0]] and DSL.get_ul_y(list_list_objs) == [[0, 0], [0]]
+
 
 # --- neighbours4 / neighbours8 ---
 def test_neighbours4_neighbours8():
