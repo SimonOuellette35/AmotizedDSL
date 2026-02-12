@@ -58,6 +58,7 @@ def resolve_arg(arg, states, primitives, semantics_len, attr_cache=None, verbose
             ref_idx = arg - semantics_len
             return states[ref_idx]
         else:
+            print(f"arg == {arg}, semantics_len = {semantics_len}")
             print("==> BUG: this case shouldn't happen in resolve_arg.")
             exit(-1)
 
@@ -259,10 +260,7 @@ def execute(token_seq_list, state, primitives, object_mask=None, debug_info=None
         if token_tuple[0] == -1:
             return state[-1]
 
-        override = step_mask_override[step_i] if step_i < len(step_mask_override) else None
-        print(f"==> token_tuple = {token_tuple}")
-        print(f"\tOverride: {override}")
-        
+        override = step_mask_override[step_i] if step_i < len(step_mask_override) else None        
         output = execute_step(token_tuple, state, primitives, object_mask, prim_cache, attr_cache, object_mask_override=override)
         
         if isinstance(output[0], DeleteAction):

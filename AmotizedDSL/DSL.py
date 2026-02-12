@@ -288,18 +288,19 @@ prim_indices = {
     'neighbours4': 45,
     'neighbours8': 46,
     'sort_by': 47,
-    'del': 48,
+    'gather': 48,
+    'del': 49,
 
     # Object attributes
-    '.x': 49,        # PIXEL attribute
-    '.y': 50,        # PIXEL attribute
-    '.c': 51,        # PIXEL attribute
-    '.max_x': 52,    # Grid attribute
-    '.max_y': 53,    # Grid attribute
-    '.width': 54,    # Grid attribute
-    '.height': 55,    # Grid attribute
-    '.ul_x': 56,     # Grid attribute
-    '.ul_y': 57      # Grid attribute
+    '.x': 50,        # PIXEL attribute
+    '.y': 51,        # PIXEL attribute
+    '.c': 52,        # PIXEL attribute
+    '.max_x': 53,    # Grid attribute
+    '.max_y': 54,    # Grid attribute
+    '.width': 55,    # Grid attribute
+    '.height': 56,    # Grid attribute
+    '.ul_x': 57,     # Grid attribute
+    '.ul_y': 58      # Grid attribute
 }
 
 # Build reverse lookup dictionary once at module load time for O(1) lookups
