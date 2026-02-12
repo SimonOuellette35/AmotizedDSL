@@ -336,6 +336,7 @@ text_to_code = {
     'neighbours4': 'nb4',
     'neighbours8': 'nb8',
     'sort_by': 'srt',
+    'gather': 'gthr',
     'count_items': 'len',
     'less_than': '<',
 
