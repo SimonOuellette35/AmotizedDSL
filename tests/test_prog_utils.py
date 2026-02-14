@@ -646,7 +646,7 @@ def test_convert_user_format_to_tuple_format():
         ('get_bg', [ref_id]),
         ('del', [ref_id]),
         ('index', [(ref_id+1, '.c'), 0]),
-        ('equal', [(ref_id, '.c'), ref_id+1]),
+        ('equal', [(ref_id, '.c'), ref_id+2]),
         ('del', [ref_id+2]),
         ('switch', [ref_id+2, 'param1', (ref_id, '.c')]),
         ('del', [ref_id+2]),
@@ -682,24 +682,29 @@ def test_convert_user_instruction_to_token_seq():
 
     token_fmt_prog = ProgUtils.convert_user_format_to_token_seq(prog)
 
+    def lookup(name):
+        return DSL.prim_indices[name] + ProgUtils.NUM_SPECIAL_TOKENS
+
     ref_id = len(DSL.semantics) + ProgUtils.NUM_SPECIAL_TOKENS
+    print("ref_id = ", ref_id)
     expected_tokens = [
-        [0,15,1,ref_id,3],
-        [0,16,1,ref_id,3],
-        [0,51,1,ref_id,3],
-        [0,22,1,ref_id+1,54,2,4,3],
-        [0,18,1,ref_id,54,2,ref_id+2,3],
-        [0,51,1,ref_id+2,3],
-        [0,21,1,ref_id+2,2,"param1",2,ref_id,54,3],
-        [0,51,1,ref_id+2,3],
-        [0,41,1,ref_id,2,ref_id+2,3],
-        [0,51,1,ref_id,3],
-        [0,51,1,ref_id+1,3],
-        [0,48,1,ref_id,2,ref_id+1,3],
-        [0,51,1,ref_id,3],
-        [0,51,1,ref_id,3]
+        [0,lookup('get_objects'),1,ref_id,3],
+        [0,lookup('get_bg'),1,ref_id,3],
+        [0,lookup('del'),1,ref_id,3],
+        [0,lookup('index'),1,ref_id+1,lookup('.c'),2,4,3],
+        [0,lookup('equal'),1,ref_id,lookup('.c'),2,ref_id+2,3],
+        [0,lookup('del'),1,ref_id+2,3],
+        [0,lookup('switch'),1,ref_id+2,2,"param1",2,ref_id,lookup('.c'),3],
+        [0,lookup('del'),1,ref_id+2,3],
+        [0,lookup('set_color'),1,ref_id,2,ref_id+2,3],
+        [0,lookup('del'),1,ref_id,3],
+        [0,lookup('del'),1,ref_id+1,3],
+        [0,lookup('rebuild_grid'),1,ref_id,2,ref_id+1,3],
+        [0,lookup('del'),1,ref_id,3],
+        [0,lookup('del'),1,ref_id,3]
     ]
 
+    print(f"token_fmt_prog = {token_fmt_prog}")
     assert token_fmt_prog == expected_tokens, f"Expected {expected_tokens}, but got {token_fmt_prog}"
 
 def test_convert_user_format_to_token_seq_switch_statement():
@@ -725,24 +730,27 @@ def test_convert_user_format_to_token_seq_switch_statement():
 
     token_fmt_prog1 = ProgUtils.convert_user_format_to_token_seq(prog1)
 
+    def lookup(name):
+        return DSL.prim_indices[name] + ProgUtils.NUM_SPECIAL_TOKENS
+
     ref_id = len(DSL.semantics) + ProgUtils.NUM_SPECIAL_TOKENS
     expected_tokens1 = [
-        [0, 24, 1, ref_id, 52, 2, 5, 3],
-        [0, 38, 1, ref_id, 2, ref_id+1, 2, ref_id, 53, 2, ref_id+1, 54, 3],
-        [0, 51, 1, ref_id+1, 3],
-        [0, 51, 1, ref_id, 3],
-        [0, 38, 1, ref_id, 2, 4, 2, ref_id, 53, 2, 4, 3],
-        [0, 51, 1, ref_id, 3],
-        [0, 36, 1, ref_id, 2, 4, 2, 4, 2, ref_id, 55, 2, ref_id+1, 58, 3],
-        [0, 51, 1, ref_id, 3],
-        [0, 18, 1, ref_id, 54, 2, 'param1', 3],
-        [0, 18, 1, ref_id, 54, 2, 'param2', 3],
-        [0, 21, 1, ref_id+1, 2, ref_id+2, 2, 'param2', 2, 'param1', 2, ref_id, 54, 3],
-        [0, 51, 1, ref_id+1, 3],
-        [0, 51, 1, ref_id+1, 3],
-        [0, 38, 1, ref_id, 2, ref_id, 52, 2, ref_id, 53, 2, ref_id+1, 3],
-        [0, 51, 1, ref_id, 3],
-        [0, 51, 1, ref_id, 3]
+        [0, lookup('add'), 1, ref_id, lookup('.x'), 2, 5, 3],
+        [0, lookup('set_pixels'), 1, ref_id, 2, ref_id+1, 2, ref_id, lookup('.y'), 2, ref_id, lookup('.c'), 3],
+        [0, lookup('del'), 1, ref_id+1, 3],
+        [0, lookup('del'), 1, ref_id, 3],
+        [0, lookup('set_pixels'), 1, ref_id, 2, 4, 2, ref_id, lookup('.y'), 2, 4, 3],
+        [0, lookup('del'), 1, ref_id, 3],
+        [0, lookup('crop'), 1, ref_id, 2, 4, 2, 4, 2, ref_id, lookup('.max_x'), 2, ref_id, lookup('.height'), 3],
+        [0, lookup('del'), 1, ref_id, 3],
+        [0, lookup('equal'), 1, ref_id, lookup('.c'), 2, 'param1', 3],
+        [0, lookup('equal'), 1, ref_id, lookup('.c'), 2, 'param2', 3],
+        [0, lookup('switch'), 1, ref_id+1, 2, ref_id+2, 2, 'param2', 2, 'param1', 2, ref_id, lookup('.c'), 3],
+        [0, lookup('del'), 1, ref_id+1, 3],
+        [0, lookup('del'), 1, ref_id+1, 3],
+        [0, lookup('set_pixels'), 1, ref_id, 2, ref_id, lookup('.x'), 2, ref_id, lookup('.y'), 2, ref_id+1, 3],
+        [0, lookup('del'), 1, ref_id, 3],
+        [0, lookup('del'), 1, ref_id, 3]
     ]
 
     assert token_fmt_prog1 == expected_tokens1, f"Expected {expected_tokens1}, but got {token_fmt_prog1}"
@@ -774,20 +782,26 @@ def test_convert_user_format_to_token_seq_switch_statement():
 
     ref_id = len(DSL.semantics) + ProgUtils.NUM_SPECIAL_TOKENS
     expected_tokens2 = [
-      [0, 26, 1, ref_id, 57, 2, 6, 3],
-      [0, 37, 1, ref_id, 2, ref_id+1, 2, ref_id+1, 3],
-      [0, 24, 1, ref_id+1, 2, 5, 3],
-      [0, 51, 1, ref_id+1, 3],
-      [0, 37, 1, ref_id, 2, ref_id+2, 2, ref_id+2, 3],
-      [0, 24, 1, ref_id+2, 2, 5, 3],
-      [0, 51, 1, ref_id+2, 3],
-      [0, 37, 1, ref_id, 2, ref_id+3, 2, ref_id+3, 3],
-      [0, 51, 1, ref_id+3, 3],
-      [0, 18, 1, ref_id, 54, 2, ref_id+1, 3],
-      [0, 18, 1, ref_id, 54, 2, ref_id+2, 3],
-      [0, 21, 1, ref_id+4, 2, ref_id+5, 2, ref_id+2, 2, ref_id+3, 2, ref_id+1, 3],
-      [0, 51, 1, ref_id+1, 3],
-      [0, 51, 1, ref_id+1, 3],
+      [0, lookup('div'), 1, ref_id, lookup('.width'), 2, 6, 3],
+      [0, lookup('colorOf'), 1, ref_id, 2, ref_id+1, 2, ref_id+1, 3],
+      [0, lookup('add'), 1, ref_id+1, 2, 5, 3],
+      [0, lookup('del'), 1, ref_id+1, 3],
+      [0, lookup('colorOf'), 1, ref_id, 2, ref_id+2, 2, ref_id+2, 3],
+      [0, lookup('add'), 1, ref_id+2, 2, 5, 3],
+      [0, lookup('del'), 1, ref_id+2, 3],
+      [0, lookup('colorOf'), 1, ref_id, 2, ref_id+3, 2, ref_id+3, 3],
+      [0, lookup('del'), 1, ref_id+3, 3],
+      [0, lookup('equal'), 1, ref_id, lookup('.c'), 2, ref_id+1, 3],
+      [0, lookup('equal'), 1, ref_id, lookup('.c'), 2, ref_id+2, 3],
+      [0, lookup('switch'), 1, ref_id+4, 2, ref_id+5, 2, ref_id+2, 2, ref_id+3, 2, ref_id+1, 3],
+      [0, lookup('del'), 1, ref_id+1, 3],
+      [0, lookup('del'), 1, ref_id+1, 3],
+      [0, lookup('del'), 1, ref_id+1, 3],
+      [0, lookup('del'), 1, ref_id+1, 3],
+      [0, lookup('del'), 1, ref_id+1, 3],
+      [0, lookup('set_color'), 1, ref_id, 2, ref_id+1, 3],
+      [0, lookup('del'), 1, ref_id, 3],
+      [0, lookup('del'), 1, ref_id, 3]
     ]
 
     assert token_fmt_prog2 == expected_tokens2, f"Expected {expected_tokens2}, but got {token_fmt_prog2}"
