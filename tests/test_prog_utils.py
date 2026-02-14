@@ -38,7 +38,7 @@ def test_infer_type_unique():
     prim_idx = DSL.prim_indices[primitive_name]
     prim_token = prim_idx + ProgUtils.NUM_SPECIAL_TOKENS
 
-    ref_id = 61
+    ref_id = len(DSL.semantics) + ProgUtils.NUM_SPECIAL_TOKENS
 
     instruction_seq = [
         ProgUtils.SOS_TOKEN,
@@ -63,7 +63,7 @@ def test_infer_type_get_index():
     prim_idx = DSL.prim_indices[primitive_name]
     prim_token = prim_idx + ProgUtils.NUM_SPECIAL_TOKENS
 
-    ref_id = 61
+    ref_id = len(DSL.semantics) + ProgUtils.NUM_SPECIAL_TOKENS
     idx = 5 + ProgUtils.NUM_SPECIAL_TOKENS
 
     instruction_seq = [
@@ -135,7 +135,7 @@ def test_infer_type_less_than():
         f"Expected TYPE_BOOL ({ProgUtils.TYPE_BOOL}), got {result_type}"
 
     a = 5
-    b = 61
+    b = len(DSL.semantics) + ProgUtils.NUM_SPECIAL_TOKENS
 
     instruction_seq = [
         ProgUtils.SOS_TOKEN,
@@ -158,8 +158,8 @@ def test_infer_type_less_than():
         f"Expected TYPE_LIST_BOOL ({ProgUtils.TYPE_LIST_BOOL}), got {result_type}"
 
 
-    a = 62
-    b = 61
+    a = len(DSL.semantics) + ProgUtils.NUM_SPECIAL_TOKENS + 1
+    b = len(DSL.semantics) + ProgUtils.NUM_SPECIAL_TOKENS
 
     instruction_seq = [
         ProgUtils.SOS_TOKEN,
@@ -187,7 +187,7 @@ def test_infer_type_count_items():
     prim_idx = DSL.prim_indices[primitive_name]
     prim_token = prim_idx + ProgUtils.NUM_SPECIAL_TOKENS
 
-    data_list = 61
+    data_list = len(DSL.semantics) + ProgUtils.NUM_SPECIAL_TOKENS
 
     instruction_seq = [
         ProgUtils.SOS_TOKEN,
@@ -243,8 +243,8 @@ def test_infer_type_count_values():
     prim_idx = DSL.prim_indices[primitive_name]
     prim_token = prim_idx + ProgUtils.NUM_SPECIAL_TOKENS
 
-    values = 61
-    data_list = 62
+    values = len(DSL.semantics) + ProgUtils.NUM_SPECIAL_TOKENS
+    data_list = len(DSL.semantics) + ProgUtils.NUM_SPECIAL_TOKENS + 1
 
     instruction_seq = [
         ProgUtils.SOS_TOKEN,
@@ -301,7 +301,7 @@ def test_infer_type_sin_half_pi():
     assert result_type == ProgUtils.TYPE_INT, \
         f"Expected TYPE_INT ({ProgUtils.TYPE_INT}), got {result_type}"
 
-    val = 61
+    val = len(DSL.semantics) + ProgUtils.NUM_SPECIAL_TOKENS
 
     instruction_seq = [
         ProgUtils.SOS_TOKEN,
@@ -349,8 +349,8 @@ def test_infer_type_addition():
     assert result_type == ProgUtils.TYPE_INT, \
         f"Expected TYPE_INT ({ProgUtils.TYPE_INT}), got {result_type}"
 
-    a = 61
-    b = 62
+    a = len(DSL.semantics) + ProgUtils.NUM_SPECIAL_TOKENS
+    b = len(DSL.semantics) + ProgUtils.NUM_SPECIAL_TOKENS + 1
 
     instruction_seq = [
         ProgUtils.SOS_TOKEN,
@@ -378,10 +378,10 @@ def test_infer_type_switch():
     prim_idx = DSL.prim_indices[primitive_name]
     prim_token = prim_idx + ProgUtils.NUM_SPECIAL_TOKENS
 
-    cond1 = 61
-    cond2 = 62
-    op1 = 63
-    op2 = 64
+    cond1 = len(DSL.semantics) + ProgUtils.NUM_SPECIAL_TOKENS
+    cond2 = len(DSL.semantics) + ProgUtils.NUM_SPECIAL_TOKENS + 1
+    op1 = len(DSL.semantics) + ProgUtils.NUM_SPECIAL_TOKENS + 2
+    op2 = len(DSL.semantics) + ProgUtils.NUM_SPECIAL_TOKENS + 3
     otherwise = 5
 
     instruction_seq = [
@@ -410,12 +410,12 @@ def test_infer_type_switch():
     assert result_type == ProgUtils.TYPE_LIST_INT, \
         f"Expected TYPE_LIST_INT ({ProgUtils.TYPE_LIST_INT}), got {result_type}"
 
-    cond1 = 61
-    cond2 = 62
-    cond3 = 63
-    op1 = 64
-    op2 = 65
-    op3 = 66
+    cond1 = len(DSL.semantics) + ProgUtils.NUM_SPECIAL_TOKENS
+    cond2 = len(DSL.semantics) + ProgUtils.NUM_SPECIAL_TOKENS + 1
+    cond3 = len(DSL.semantics) + ProgUtils.NUM_SPECIAL_TOKENS + 2
+    op1 = len(DSL.semantics) + ProgUtils.NUM_SPECIAL_TOKENS + 3
+    op2 = len(DSL.semantics) + ProgUtils.NUM_SPECIAL_TOKENS + 4
+    op3 = len(DSL.semantics) + ProgUtils.NUM_SPECIAL_TOKENS + 5
     otherwise = 5
 
     instruction_seq = [
@@ -453,8 +453,8 @@ def test_infer_type_keep():
     prim_idx = DSL.prim_indices[primitive_name]
     prim_token = prim_idx + ProgUtils.NUM_SPECIAL_TOKENS
 
-    data_list = 61
-    flags = 62
+    data_list = len(DSL.semantics) + ProgUtils.NUM_SPECIAL_TOKENS
+    flags = len(DSL.semantics) + ProgUtils.NUM_SPECIAL_TOKENS + 1
 
     instruction_seq = [
         ProgUtils.SOS_TOKEN,
@@ -492,8 +492,8 @@ def test_infer_type_set_difference():
     prim_idx = DSL.prim_indices[primitive_name]
     prim_token = prim_idx + ProgUtils.NUM_SPECIAL_TOKENS
 
-    a = 61
-    b = 62
+    a = len(DSL.semantics) + ProgUtils.NUM_SPECIAL_TOKENS
+    b = len(DSL.semantics) + ProgUtils.NUM_SPECIAL_TOKENS + 1
 
     instruction_seq = [
         ProgUtils.SOS_TOKEN,
@@ -531,10 +531,10 @@ def test_infer_type_set_pixels():
     prim_idx = DSL.prim_indices[primitive_name]
     prim_token = prim_idx + ProgUtils.NUM_SPECIAL_TOKENS
 
-    grid = 61
-    x = 62
-    y = 63
-    c = 64
+    grid = len(DSL.semantics) + ProgUtils.NUM_SPECIAL_TOKENS
+    x = len(DSL.semantics) + ProgUtils.NUM_SPECIAL_TOKENS + 1
+    y = len(DSL.semantics) + ProgUtils.NUM_SPECIAL_TOKENS + 2
+    c = len(DSL.semantics) + ProgUtils.NUM_SPECIAL_TOKENS + 3
 
     instruction_seq = [
         ProgUtils.SOS_TOKEN,
@@ -576,7 +576,7 @@ def test_infer_type_crop():
     prim_idx = DSL.prim_indices[primitive_name]
     prim_token = prim_idx + ProgUtils.NUM_SPECIAL_TOKENS
 
-    grid = 61
+    grid = len(DSL.semantics) + ProgUtils.NUM_SPECIAL_TOKENS
     x1 = 4
     y1 = 4
     x2 = 10
@@ -640,21 +640,22 @@ def test_convert_user_format_to_tuple_format():
 
     tuple_fmt_prog = ProgUtils.convert_user_format_to_tuple_format(prog, len(DSL.semantics))
 
+    ref_id = len(DSL.semantics)
     expected_tuples = [
-        ('get_objects', [57]),
-        ('get_bg', [57]),
-        ('del', [57]),
-        ('index', [(58, '.c'), 0]),
-        ('equal', [(57, '.c'), 59]),
-        ('del', [59]),
-        ('switch', [59, 'param1', (57, '.c')]),
-        ('del', [59]),
-        ('set_color', [57, 59]),
-        ('del', [57]),
-        ('del', [58]),
-        ('rebuild_grid', [57, 58]),
-        ('del', [57]),
-        ('del', [57])
+        ('get_objects', [ref_id]),
+        ('get_bg', [ref_id]),
+        ('del', [ref_id]),
+        ('index', [(ref_id+1, '.c'), 0]),
+        ('equal', [(ref_id, '.c'), ref_id+1]),
+        ('del', [ref_id+2]),
+        ('switch', [ref_id+2, 'param1', (ref_id, '.c')]),
+        ('del', [ref_id+2]),
+        ('set_color', [ref_id, ref_id+2]),
+        ('del', [ref_id]),
+        ('del', [ref_id+1]),
+        ('rebuild_grid', [ref_id, ref_id+1]),
+        ('del', [ref_id]),
+        ('del', [ref_id])
     ]
 
     assert tuple_fmt_prog == expected_tuples, f"Expected {expected_tuples}, but got {tuple_fmt_prog}"
@@ -681,21 +682,22 @@ def test_convert_user_instruction_to_token_seq():
 
     token_fmt_prog = ProgUtils.convert_user_format_to_token_seq(prog)
 
+    ref_id = len(DSL.semantics) + ProgUtils.NUM_SPECIAL_TOKENS
     expected_tokens = [
-        [0,15,1,61,3],
-        [0,16,1,61,3],
-        [0,51,1,61,3],
-        [0,22,1,62,54,2,4,3],
-        [0,18,1,61,54,2,63,3],
-        [0,51,1,63,3],
-        [0,21,1,63,2,"param1",2,61,54,3],
-        [0,51,1,63,3],
-        [0,41,1,61,2,63,3],
-        [0,51,1,61,3],
-        [0,51,1,62,3],
-        [0,48,1,61,2,62,3],
-        [0,51,1,61,3],
-        [0,51,1,61,3]
+        [0,15,1,ref_id,3],
+        [0,16,1,ref_id,3],
+        [0,51,1,ref_id,3],
+        [0,22,1,ref_id+1,54,2,4,3],
+        [0,18,1,ref_id,54,2,ref_id+2,3],
+        [0,51,1,ref_id+2,3],
+        [0,21,1,ref_id+2,2,"param1",2,ref_id,54,3],
+        [0,51,1,ref_id+2,3],
+        [0,41,1,ref_id,2,ref_id+2,3],
+        [0,51,1,ref_id,3],
+        [0,51,1,ref_id+1,3],
+        [0,48,1,ref_id,2,ref_id+1,3],
+        [0,51,1,ref_id,3],
+        [0,51,1,ref_id,3]
     ]
 
     assert token_fmt_prog == expected_tokens, f"Expected {expected_tokens}, but got {token_fmt_prog}"
@@ -723,23 +725,24 @@ def test_convert_user_format_to_token_seq_switch_statement():
 
     token_fmt_prog1 = ProgUtils.convert_user_format_to_token_seq(prog1)
 
+    ref_id = len(DSL.semantics) + ProgUtils.NUM_SPECIAL_TOKENS
     expected_tokens1 = [
-        [0, 24, 1, 61, 52, 2, 5, 3],
-        [0, 38, 1, 61, 2, 62, 2, 61, 53, 2, 61, 54, 3],
-        [0, 51, 1, 62, 3],
-        [0, 51, 1, 61, 3],
-        [0, 38, 1, 61, 2, 4, 2, 61, 53, 2, 4, 3],
-        [0, 51, 1, 61, 3],
-        [0, 36, 1, 61, 2, 4, 2, 4, 2, 61, 55, 2, 61, 58, 3],
-        [0, 51, 1, 61, 3],
-        [0, 18, 1, 61, 54, 2, 'param1', 3],
-        [0, 18, 1, 61, 54, 2, 'param2', 3],
-        [0, 21, 1, 62, 2, 63, 2, 'param2', 2, 'param1', 2, 61, 54, 3],
-        [0, 51, 1, 62, 3],
-        [0, 51, 1, 62, 3],
-        [0, 38, 1, 61, 2, 61, 52, 2, 61, 53, 2, 62, 3],
-        [0, 51, 1, 61, 3],
-        [0, 51, 1, 61, 3]
+        [0, 24, 1, ref_id, 52, 2, 5, 3],
+        [0, 38, 1, ref_id, 2, ref_id+1, 2, ref_id, 53, 2, ref_id+1, 54, 3],
+        [0, 51, 1, ref_id+1, 3],
+        [0, 51, 1, ref_id, 3],
+        [0, 38, 1, ref_id, 2, 4, 2, ref_id, 53, 2, 4, 3],
+        [0, 51, 1, ref_id, 3],
+        [0, 36, 1, ref_id, 2, 4, 2, 4, 2, ref_id, 55, 2, ref_id+1, 58, 3],
+        [0, 51, 1, ref_id, 3],
+        [0, 18, 1, ref_id, 54, 2, 'param1', 3],
+        [0, 18, 1, ref_id, 54, 2, 'param2', 3],
+        [0, 21, 1, ref_id+1, 2, ref_id+2, 2, 'param2', 2, 'param1', 2, ref_id, 54, 3],
+        [0, 51, 1, ref_id+1, 3],
+        [0, 51, 1, ref_id+1, 3],
+        [0, 38, 1, ref_id, 2, ref_id, 52, 2, ref_id, 53, 2, ref_id+1, 3],
+        [0, 51, 1, ref_id, 3],
+        [0, 51, 1, ref_id, 3]
     ]
 
     assert token_fmt_prog1 == expected_tokens1, f"Expected {expected_tokens1}, but got {token_fmt_prog1}"
@@ -769,27 +772,22 @@ def test_convert_user_format_to_token_seq_switch_statement():
 
     token_fmt_prog2 = ProgUtils.convert_user_format_to_token_seq(prog2)
 
+    ref_id = len(DSL.semantics) + ProgUtils.NUM_SPECIAL_TOKENS
     expected_tokens2 = [
-      [0, 26, 1, 61, 57, 2, 6, 3],
-      [0, 37, 1, 61, 2, 62, 2, 62, 3],
-      [0, 24, 1, 62, 2, 5, 3],
-      [0, 51, 1, 62, 3],
-      [0, 37, 1, 61, 2, 63, 2, 63, 3],
-      [0, 24, 1, 63, 2, 5, 3],
-      [0, 51, 1, 63, 3],
-      [0, 37, 1, 61, 2, 64, 2, 64, 3],
-      [0, 51, 1, 64, 3],
-      [0, 18, 1, 61, 54, 2, 62, 3],
-      [0, 18, 1, 61, 54, 2, 63, 3],
-      [0, 21, 1, 65, 2, 66, 2, 63, 2, 64, 2, 62, 3],
-      [0, 51, 1, 62, 3],
-      [0, 51, 1, 62, 3],
-      [0, 51, 1, 62, 3],
-      [0, 51, 1, 62, 3],
-      [0, 51, 1, 62, 3],
-      [0, 41, 1, 61, 2, 62, 3],
-      [0, 51, 1, 61, 3],
-      [0, 51, 1, 61, 3]
+      [0, 26, 1, ref_id, 57, 2, 6, 3],
+      [0, 37, 1, ref_id, 2, ref_id+1, 2, ref_id+1, 3],
+      [0, 24, 1, ref_id+1, 2, 5, 3],
+      [0, 51, 1, ref_id+1, 3],
+      [0, 37, 1, ref_id, 2, ref_id+2, 2, ref_id+2, 3],
+      [0, 24, 1, ref_id+2, 2, 5, 3],
+      [0, 51, 1, ref_id+2, 3],
+      [0, 37, 1, ref_id, 2, ref_id+3, 2, ref_id+3, 3],
+      [0, 51, 1, ref_id+3, 3],
+      [0, 18, 1, ref_id, 54, 2, ref_id+1, 3],
+      [0, 18, 1, ref_id, 54, 2, ref_id+2, 3],
+      [0, 21, 1, ref_id+4, 2, ref_id+5, 2, ref_id+2, 2, ref_id+3, 2, ref_id+1, 3],
+      [0, 51, 1, ref_id+1, 3],
+      [0, 51, 1, ref_id+1, 3],
     ]
 
     assert token_fmt_prog2 == expected_tokens2, f"Expected {expected_tokens2}, but got {token_fmt_prog2}"
