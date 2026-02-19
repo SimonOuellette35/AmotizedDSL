@@ -136,26 +136,17 @@ def execute_step(step_token_seq, states, primitives, object_mask=None, prim_cach
             if isinstance(object_mask_override, list):
                 # Sub object masks are being passed as parameter, loop over object/sub-obj-mask and collect results
                 obj_mask = mask_for_step[k_idx]
-                print(f"==> obj_mask[{k_idx}]: {obj_mask}")
                 example_result = []
                 for sub_obj_idx in range(len(object_mask_override[k_idx])):
-                    obj_mask = obj_mask[sub_obj_idx]
-
-                    print(f"==> sub-object #{sub_obj_idx}: {obj_mask}")
+                    sub_obj_mask = obj_mask[sub_obj_idx]
 
                     # List of sub_obj_masks (second get_objects)
-                    current_obj_mask = [m.tolist() if isinstance(m, np.ndarray) else m for m in obj_mask]
-
-                    print(f"==> current_obj_mask: {current_obj_mask}")
+                    current_obj_mask = [m.tolist() if isinstance(m, np.ndarray) else m for m in sub_obj_mask]
 
                     # Execute get_objects or get_bg with grid and object_mask
                     tmp_result = prim_func(grid[sub_obj_idx], current_obj_mask)
                     
-                    print(f"==> tmp_result: {tmp_result}")
                     example_result.append(tmp_result)
-
-                print(f"==> example_result: {example_result}")
-
             else:
                 # Get the object mask for this example (k_idx); use mask_for_step (object_mask or override)
                 if mask_for_step is not None and k_idx < len(mask_for_step):

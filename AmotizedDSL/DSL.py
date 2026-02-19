@@ -401,14 +401,17 @@ def get_objects(grid: Union[GridObject, List[GridObject]], obj_mask: Union[List[
                     if color is None:
                         # fallback: get color from grid.to_grid()
                         color = int(grid.to_grid()[y, x])
+
+                    pixels.append(Pixel(int(x + grid.ul_x), int(y + grid.ul_y), int(color)))
                 else:
                     color = int(grid[y, x])
-                pixels.append(Pixel(int(x), int(y), int(color)))
+                    pixels.append(Pixel(int(x), int(y), int(color)))
 
             if pixels:
                 # Optionally, set ul_x, ul_y to min x/y of pixels
                 ul_x = min(pixel.x for pixel in pixels)
                 ul_y = min(pixel.y for pixel in pixels)
+                
                 obj = GridObject(pixels, ul_x, ul_y)
                 tmp_objects.append(obj)
     
@@ -758,9 +761,19 @@ def cos_half_pi(val: Union[int, List[int]]) -> Union[int, List[int]]:
     else:
         return int(math.cos((np.pi / 2.) * val))
 
-def addition(a: Union[int, List[int], List[List[int]]], 
+def addition(a: Union[int, List[int], List[List[int]], List[List[List[int]]]], 
              b: Union[int, List[int], List[List[int]]]) -> Union[int, List[int]]:
-    if isinstance(a, List) and isinstance(a[0], List) and isinstance(b, List) and isinstance(b[0], List):
+    if isinstance(a, List) and isinstance(a[0], List) and isinstance(a[0][0], List)and isinstance(b, List) and isinstance(b[0], List):
+        print("==> a is a list[list[list[int]] and b is list[list[int]]")
+        output_sum_lists = []
+        for list_idx in range(len(a)):
+            output_sums = []
+            for elem_idx in range(len(a[list_idx])):
+                output_sums.append(a[list_idx][elem_idx] + b[list_idx][elem_idx])
+            
+            output_sum_lists.append(output_sums)
+        return output_sum_lists
+    elif isinstance(a, List) and isinstance(a[0], List) and isinstance(b, List) and isinstance(b[0], List) and isinstance(b[0], List):
         output_sum_lists = []
         for list_idx in range(len(a)):
             output_sums = []
