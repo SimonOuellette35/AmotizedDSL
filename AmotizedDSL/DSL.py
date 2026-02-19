@@ -287,18 +287,20 @@ prim_indices = {
     'rebuild_grid': 44,
     'neighbours4': 45,
     'neighbours8': 46,
-    'del': 47,
+    'sort_by': 47,
+    'gather': 48,
+    'del': 49,
 
     # Object attributes
-    '.x': 48,        # PIXEL attribute
-    '.y': 49,        # PIXEL attribute
-    '.c': 50,        # PIXEL attribute
-    '.max_x': 51,    # Grid attribute
-    '.max_y': 52,    # Grid attribute
-    '.width': 53,    # Grid attribute
-    '.height': 54,    # Grid attribute
-    '.ul_x': 55,     # Grid attribute
-    '.ul_y': 56      # Grid attribute
+    '.x': 50,        # PIXEL attribute
+    '.y': 51,        # PIXEL attribute
+    '.c': 52,        # PIXEL attribute
+    '.max_x': 53,    # Grid attribute
+    '.max_y': 54,    # Grid attribute
+    '.width': 55,    # Grid attribute
+    '.height': 56,    # Grid attribute
+    '.ul_x': 57,     # Grid attribute
+    '.ul_y': 58      # Grid attribute
 }
 
 # Build reverse lookup dictionary once at module load time for O(1) lookups
@@ -333,6 +335,8 @@ text_to_code = {
     'rebuild_grid': 'rbld',
     'neighbours4': 'nb4',
     'neighbours8': 'nb8',
+    'sort_by': 'srt',
+    'gather': 'gthr',
     'count_items': 'len',
     'less_than': '<',
 
@@ -357,45 +361,72 @@ def new_grid(w: int, h: int, bg_color: int) -> GridObject:
     cells = np.ones((h, w)) * bg_color
     return GridObject.from_grid(cells)
 
-def get_objects(grid: GridObject, obj_mask: List[List[int]]) -> List[GridObject]:
+def get_objects(grid: Union[GridObject, List[GridObject]], obj_mask: Union[List[List[int]], List[List[List[int]]]]) -> List[GridObject]:
     """
     Extracts all distinct objects from the grid using the object mask.
     Each unique non-zero value in obj_mask corresponds to a separate object.
     For each such value, collect all pixels with that value, using their color from the grid,
     and create a GridObject for that object.
     """
-    objects = []
+
     # Find all unique instance IDs in the object mask (excluding 0 which is background)
     instance_ids = np.unique(obj_mask)
     instance_ids = instance_ids[instance_ids != 0]  # Exclude 0 (background)
 
-    for obj_id in instance_ids:
-        # Get all (y, x) coordinates in obj_mask that correspond to the value obj_id
-        coords = np.argwhere(obj_mask == obj_id)
-        pixels = []
-        for y, x in coords:
-            color = None
-            # grid can be GridObject or a numpy array
-            if isinstance(grid, GridObject):
-                # Find the pixel in grid.pixels with matching x, y
-                for px in grid.pixels:
-                    if px.x == x and px.y == y:
-                        color = px.c
-                        break
-                if color is None:
-                    # fallback: get color from grid.to_grid()
-                    color = int(grid.to_grid()[y, x])
-            else:
-                color = int(grid[y, x])
-            pixels.append(Pixel(int(x), int(y), int(color)))
-        if pixels:
-            # Optionally, set ul_x, ul_y to min x/y of pixels
-            ul_x = min(pixel.x for pixel in pixels)
-            ul_y = min(pixel.y for pixel in pixels)
-            obj = GridObject(pixels, ul_x, ul_y)
-            objects.append(obj)
+    def is_list_of_sub_obj_masks(obj_mask):
+        return (
+            isinstance(obj_mask, list) and 
+            len(obj_mask) > 0 and 
+            isinstance(obj_mask[0], list) and
+            len(obj_mask[0]) > 0 and 
+            isinstance(obj_mask[0][0], list)
+        )
+
+    def get_single_grid_obj(grid, obj_mask):
+        tmp_objects = []
+
+        for obj_id in instance_ids:
+            # Get all (y, x) coordinates in obj_mask that correspond to the value obj_id
+            coords = np.argwhere(obj_mask == obj_id)
+            pixels = []
+            for y, x in coords:
+                color = None
+                # grid can be GridObject or a numpy array
+                if isinstance(grid, GridObject):
+                    # Find the pixel in grid.pixels with matching x, y
+                    for px in grid.pixels:
+                        if px.x == x and px.y == y:
+                            color = px.c
+                            break
+                    if color is None:
+                        # fallback: get color from grid.to_grid()
+                        color = int(grid.to_grid()[y, x])
+
+                    pixels.append(Pixel(int(x + grid.ul_x), int(y + grid.ul_y), int(color)))
+                else:
+                    color = int(grid[y, x])
+                    pixels.append(Pixel(int(x), int(y), int(color)))
+
+            if pixels:
+                # Optionally, set ul_x, ul_y to min x/y of pixels
+                ul_x = min(pixel.x for pixel in pixels)
+                ul_y = min(pixel.y for pixel in pixels)
+                
+                obj = GridObject(pixels, ul_x, ul_y)
+                tmp_objects.append(obj)
     
-    return objects
+        return tmp_objects
+
+    if is_list_of_sub_obj_masks(obj_mask):
+        output = []
+        for idx, sub_obj_mask in enumerate(obj_mask):
+            tmp_out = get_single_grid_obj(grid[idx], sub_obj_mask)
+            output.append(tmp_out)
+
+        return output
+    else:
+        return get_single_grid_obj(grid, obj_mask)
+    
 
 
 def get_bg(grid: GridObject, obj_mask: List[List[int]]) -> GridObject:
@@ -456,22 +487,38 @@ def get_bg(grid: GridObject, obj_mask: List[List[int]]) -> GridObject:
         return GridObject([])
 
 
-def get_width(g: Union[GridObject, List[GridObject]]) -> Union[DIM, List[DIM]]:
+def get_width(g: Union[GridObject, List[GridObject], List[List[GridObject]]]) -> Union[DIM, List[DIM]]:
     if isinstance(g, GridObject):
         return g.width
-    else:
+    elif isinstance(g[0], GridObject):
         widths = []
         for grid in g:
             widths.append(grid.width)
         return widths
+    else:
+        widths = []
+        for subg in g:
+            sub_widths = []
+            for grid in subg:
+                sub_widths.append(grid.width)
+            widths.append(sub_widths)
+        return widths
 
-def get_height(g: Union[GridObject, List[GridObject]]) -> Union[DIM, List[DIM]]:
+def get_height(g: Union[GridObject, List[GridObject], List[List[GridObject]]]) -> Union[DIM, List[DIM]]:
     if isinstance(g, GridObject):
         return g.height
-    else:
+    elif isinstance(g[0], GridObject):
         heights = []
         for grid in g:
             heights.append(grid.height)
+        return heights
+    else:
+        heights = []
+        for subg in g:
+            sub_heights = []
+            for grid in subg:
+                sub_heights.append(grid.height)
+            heights.append(sub_heights)
         return heights
 
 def unique(data: Union[List[int], List[List[int]], List[List[List[int]]]]) -> Union[List[int], List[List[int]], List[List[List[int]]]]:
@@ -714,9 +761,19 @@ def cos_half_pi(val: Union[int, List[int]]) -> Union[int, List[int]]:
     else:
         return int(math.cos((np.pi / 2.) * val))
 
-def addition(a: Union[int, List[int], List[List[int]]], 
+def addition(a: Union[int, List[int], List[List[int]], List[List[List[int]]]], 
              b: Union[int, List[int], List[List[int]]]) -> Union[int, List[int]]:
-    if isinstance(a, List) and isinstance(a[0], List) and isinstance(b, List) and isinstance(b[0], List):
+    if isinstance(a, List) and isinstance(a[0], List) and isinstance(a[0][0], List)and isinstance(b, List) and isinstance(b[0], List):
+        print("==> a is a list[list[list[int]] and b is list[list[int]]")
+        output_sum_lists = []
+        for list_idx in range(len(a)):
+            output_sums = []
+            for elem_idx in range(len(a[list_idx])):
+                output_sums.append(a[list_idx][elem_idx] + b[list_idx][elem_idx])
+            
+            output_sum_lists.append(output_sums)
+        return output_sum_lists
+    elif isinstance(a, List) and isinstance(a[0], List) and isinstance(b, List) and isinstance(b[0], List) and isinstance(b[0], List):
         output_sum_lists = []
         for list_idx in range(len(a)):
             output_sums = []
@@ -1410,6 +1467,65 @@ def neighbours8(grid: Union[GridObject, List[GridObject]]) -> Union[List[List[Pi
 
         return list_of_lists
 
+def sort_by(data_list: Union[List[T], List[List[T]]], sort_list: Union[List[int], List[List[int]]]) -> Union[List[T], List[List[T]]]:
+    # Distinguish List[int] vs List[List[int]] at runtime by checking first element
+    sort_list_is_flat = sort_list and not isinstance(sort_list[0], list)
+    if sort_list_is_flat:
+        # Sort (outer) data_list by the corresponding values in sort_list (List[int])
+        paired = list(zip(sort_list, data_list))
+        paired_sorted = sorted(paired, key=lambda x: x[0])
+        return [x[1] for x in paired_sorted]
+    else:
+        # Case #3: sort the inner lists of List[List[T]] based on values associated with each element of the inner lists (sort_list is List[List[int]])
+        sorted_data_list = []
+        for inner_data, inner_sort in zip(data_list, sort_list):
+            # Pair the inner_data elements with their corresponding inner_sort values
+            paired = list(zip(inner_sort, inner_data))
+            # Sort by the sort values
+            paired_sorted = sorted(paired, key=lambda x: x[0])
+            # Unzip to get the sorted data
+            sorted_inner_data = [x[1] for x in paired_sorted]
+            sorted_data_list.append(sorted_inner_data)
+        
+        return sorted_data_list
+
+def gather(data_list: Union[List[List[T]], List[List[List[T]]]], idx: Union[int, List[int], List[List[int]]]) -> Union[List[T], List[List[T]]]:
+    
+    output = []
+    for inner_list in data_list:
+        if isinstance(inner_list[0], list):
+            # data_list is a list of list of list
+            if isinstance(idx, int):
+                inner_output = []
+                for inner_inner_list in inner_list:
+                    inner_output.append(inner_inner_list[idx])
+
+                output.append(inner_output)
+            elif isinstance(idx[0], int):
+                inner_output = []
+                for inner_inner_list in inner_list:
+                    for inner_idx in idx:
+                        inner_output.append(inner_inner_list[inner_idx])
+
+                output.append(inner_output)
+
+            else:
+                indices = idx[len(output)]  # one index per inner-inner list
+                inner_output = [inner_inner_list[i] for inner_inner_list, i in zip(inner_list, indices)]
+                output.append(inner_output)
+        else:
+            # data_list is a list of list
+            if isinstance(idx, int):
+                output.append(inner_list[idx])
+            else:
+                output_list = []
+                for inner_idx in idx:
+                    output_list.append(inner_list[inner_idx])
+
+                output.append(output_list)
+    
+    return output
+
 def set_pixels(target_grid: Union[GridObject, List[GridObject]], 
                set_x: Union[DIM, List[DIM], List[List[DIM]]], 
                set_y: Union[DIM, List[DIM], List[List[DIM]]],
@@ -1645,41 +1761,75 @@ def crop(g: Union[GridObject, List[GridObject]], x1: Union[int, List[int]], y1: 
 
         return output_grids
 
-def max_x(g: Union[GridObject, List[GridObject]]) -> Union[DIM, List[DIM]]:
-    if isinstance(g, List):
+def max_x(g: Union[GridObject, List[GridObject], List[List[GridObject]]]) -> Union[DIM, List[DIM]]:
+    if isinstance(g, GridObject):
+        return g.max_x
+    elif isinstance(g[0], GridObject):
         output = []
         for tmp_g in g:
             output.append(tmp_g.max_x)
         return output
     else:
-        return g.max_x
+        output = []
+        for subg in g:
+            suboutput = []
+            for grid in subg:
+                suboutput.append(grid.max_x)
+            output.append(suboutput)
+        return output
 
-def max_y(g: Union[GridObject, List[GridObject]]) -> Union[DIM, List[DIM]]:
-    if isinstance(g, List):
+def max_y(g: Union[GridObject, List[GridObject], List[List[GridObject]]]) -> Union[DIM, List[DIM]]:
+    if isinstance(g, GridObject):
+        return g.max_y
+    elif isinstance(g[0], GridObject):
         output = []
         for tmp_g in g:
             output.append(tmp_g.max_y)
         return output
     else:
-        return g.max_y
+        output = []
+        for subg in g:
+            suboutput = []
+            for grid in subg:
+                suboutput.append(grid.max_y)
+            output.append(suboutput)
+        return output
+        
 
-def get_ul_x(g: Union[GridObject, List[GridObject]]) -> Union[DIM, List[DIM]]:
+def get_ul_x(g: Union[GridObject, List[GridObject], List[List[GridObject]]]) -> Union[DIM, List[DIM]]:
     if isinstance(g, GridObject):
         return g.ul_x
-    else:
+    elif isinstance(g[0], GridObject):
         output = []
         for grid in g:
             output.append(grid.ul_x)
         return output
+    else:
+        output = []
+        for subg in g:
+            suboutput = []
+            for grid in subg:
+                suboutput.append(grid.ul_x)
+            output.append(suboutput)
+        return output
 
-def get_ul_y(g: Union[GridObject, List[GridObject]]) -> Union[DIM, List[DIM]]:
+def get_ul_y(g: Union[GridObject, List[GridObject], List[List[GridObject]]]) -> Union[DIM, List[DIM]]:
     if isinstance(g, GridObject):
         return g.ul_y
-    else:
+    elif isinstance(g[0], GridObject):
         output = []
         for grid in g:
             output.append(grid.ul_y)
         return output
+    else:
+        output = []
+        for subg in g:
+            suboutput = []
+            for grid in subg:
+                suboutput.append(grid.ul_y)
+            output.append(suboutput)
+        return output
+
    
 
 # =================================================================== Number of arguments for each primitive =================================================================
@@ -1732,6 +1882,8 @@ arg_counts = [
     2,  # rebuild_grid
     1,  # neighbours4
     1,  # neighbours8
+    2,  # sort_by
+    2,  # gather
     1,
     1,
     1,
@@ -1799,6 +1951,8 @@ semantics = {
     'rebuild_grid': rebuild_grid,
     'neighbours4': neighbours4,
     'neighbours8': neighbours8,
+    'sort_by': sort_by,
+    'gather': gather,
     'del': lambda x: x,       # This is actually a special primitive that is implemented at the program execution level
                               # where state memory management is possible.
 
