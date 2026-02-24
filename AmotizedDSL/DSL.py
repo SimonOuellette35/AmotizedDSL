@@ -1334,21 +1334,28 @@ def set_difference(
         # If a or b is not a list, just return a (should not happen in this DSL)
         return a
 
-def arg_min(arg_list: List[int], val_list: List[int]) -> List[int]:
-    if len(arg_list) != len(val_list):
-        raise ValueError("arg_list and val_list must have same length")
+def arg_min(arg_list: List[int], val_list: List[int] = None) -> List[int]:
     
-    min_val = min(val_list)
-    min_idx = val_list.index(min_val)
-    return arg_list[min_idx]
+    if val_list is None:
+        return np.argmin(arg_list)
+    else:
+        if len(arg_list) != len(val_list):
+            raise ValueError("arg_list and val_list must have same length")
+        
+        min_val = min(val_list)
+        min_idx = val_list.index(min_val)
+        return arg_list[min_idx]
 
-def arg_max(arg_list: List[int], val_list: List[int]) -> List[int]:
-    if len(arg_list) != len(val_list):
-        raise ValueError("arg_list and val_list must have same length")
-    
-    max_val = max(val_list)
-    max_idx = val_list.index(max_val)
-    return arg_list[max_idx]
+def arg_max(arg_list: List[int], val_list: List[int] = None) -> List[int]:
+    if val_list is None:
+        return np.argmax(arg_list)
+    else:
+        if len(arg_list) != len(val_list):
+            raise ValueError("arg_list and val_list must have same length")
+        
+        max_val = max(val_list)
+        max_idx = val_list.index(max_val)
+        return arg_list[max_idx]
 
 def logical_or(a: Union[bool, List[bool]], b: Union[bool, List[bool]]) -> Union[bool, List[bool]]:
     if isinstance(a, List) and isinstance(b, List):
