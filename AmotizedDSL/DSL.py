@@ -68,7 +68,15 @@ class GridObject:
 
             self.height = 0
             self.width = 0
-            
+
+    def __eq__(self, other):
+        a_cells = self.cells_as_numpy()
+        b_cells = other.cells_as_numpy()
+
+        if a_cells.shape != b_cells.shape:
+            return False
+
+        return np.array_equal(a_cells, b_cells)
 
     @staticmethod
     def from_grid(cells, ul_x = 0, ul_y = 0):
@@ -764,7 +772,6 @@ def cos_half_pi(val: Union[int, List[int]]) -> Union[int, List[int]]:
 def addition(a: Union[int, List[int], List[List[int]], List[List[List[int]]]], 
              b: Union[int, List[int], List[List[int]]]) -> Union[int, List[int]]:
     if isinstance(a, List) and isinstance(a[0], List) and isinstance(a[0][0], List)and isinstance(b, List) and isinstance(b[0], List):
-        print("==> a is a list[list[list[int]] and b is list[list[int]]")
         output_sum_lists = []
         for list_idx in range(len(a)):
             output_sums = []
@@ -965,7 +972,7 @@ def between(a: int, b: int, c: int) -> bool:
     else:
         return False
 
-def equal(a: Union[int, List[int]], b: Union[int, List[int]]) -> Union[bool, List[bool]]:
+def equal(a: Union[int, List[int], List[List[int]], List[GridObject]], b: Union[int, List[int], List[List[int]], List[GridObject]]) -> Union[bool, List[bool], List[List[bool]]]:
     def equal1(a: int, b: int) -> bool:
         return a == b
 
@@ -975,17 +982,28 @@ def equal(a: Union[int, List[int]], b: Union[int, List[int]]) -> Union[bool, Lis
             output.append(tmp_a == b)
 
         return output
+        
+    def equal3(a: Union[List[int], List[GridObject]], b: Union[List[int], List[GridObject]]) -> List[bool]:
+        output = []
+        for idx in range(len(a)):
+            output.append(a[idx] == b[idx])
+        return output
 
     if isinstance(a, List):
         if isinstance(a[0], List):
             output = []
             for idx in range(len(a)):
                 if isinstance(b, List):
-                    output.append(equal2(a[idx], b[idx]))
+                    if isinstance(b[0], List):
+                        output.append(equal3(a[idx], b[idx]))
+                    else:
+                        output.append(equal2(a[idx], b[idx]))
                 else:
                     output.append(equal2(a[idx], b))
             
             return output
+        elif isinstance(b, List):
+            return equal3(a, b)
         else:
             return equal2(a, b)
     else:
