@@ -1303,7 +1303,7 @@ def exclude(input_list: Union[List[T]], flags: List[bool]) -> List[T]:
 
 def set_difference(
     a: Union[List[T], List[List[T]], List[List[List[T]]]],
-    b: Union[List[T], List[List[T]], List[List[List[T]]]]
+    b: Union[T, List[T], List[List[T]], List[List[List[T]]]]
 ) -> Union[List[T], List[List[T]], List[List[List[T]]]]:
     """
     Computes the set difference between a and b, supporting nested lists and both int and Pixel types.
@@ -1315,42 +1315,41 @@ def set_difference(
                 return True
         return False
 
-    if isinstance(a, list) and isinstance(b, list):
-        if len(a) > 0 and isinstance(a[0], list):
-            # a is list of lists
-            if len(b) > 0 and isinstance(b[0], list):
-                # Both a and b are list of lists
-                if len(a) != len(b):
-                    raise ValueError("Outer lists must have same length for set_difference")
-                if len(a) > 0 and isinstance(a[0][0], list) and isinstance(b[0][0], list):
-                    # Both are list of list of lists
-                    difference_list = []
-                    for ai, bi in zip(a, b):
-                        if not (isinstance(ai, list) and isinstance(bi, list)):
-                            raise ValueError("Expected list of lists for set_difference")
-                        if len(ai) != len(bi):
-                            raise ValueError("Inner lists must have same length for set_difference")
-                        inner_diff = []
-                        for aii, bii in zip(ai, bi):
-                            # aii and bii are lists
-                            inner_diff.append([item for item in aii if not item_in(item, bii)])
-                        difference_list.append(inner_diff)
-                    return difference_list
-                else:
-                    # Both are list of lists
-                    return [set_difference(ai, bi) for ai, bi in zip(a, b)]
+    if len(a) > 0 and isinstance(a[0], list):
+        # a is list of lists
+        if len(b) > 0 and isinstance(b[0], list):
+            # Both a and b are list of lists
+            if len(a) != len(b):
+                raise ValueError("Outer lists must have same length for set_difference")
+            if len(a) > 0 and isinstance(a[0][0], list) and isinstance(b[0][0], list):
+                # Both are list of list of lists
+                difference_list = []
+                for ai, bi in zip(a, b):
+                    if not (isinstance(ai, list) and isinstance(bi, list)):
+                        raise ValueError("Expected list of lists for set_difference")
+                    if len(ai) != len(bi):
+                        raise ValueError("Inner lists must have same length for set_difference")
+                    inner_diff = []
+                    for aii, bii in zip(ai, bi):
+                        # aii and bii are lists
+                        inner_diff.append([item for item in aii if not item_in(item, bii)])
+                    difference_list.append(inner_diff)
+                return difference_list
             else:
-                # a is list of lists, b is flat list
-                return [set_difference(ai, b) for ai in a]
-        elif len(b) > 0 and isinstance(b[0], list):
-            # a is flat list, b is list of lists
-            return [set_difference(a, bi) for bi in b]
+                # Both are list of lists
+                return [set_difference(ai, bi) for ai, bi in zip(a, b)]
         else:
-            # Both are flat lists
-            return [item for item in a if not item_in(item, b)]
+            # a is list of lists, b is flat list
+            return [set_difference(ai, b) for ai in a]
+    elif isinstance(b, list) and len(b) > 0 and isinstance(b[0], list):
+        # a is flat list, b is list of lists
+        return [set_difference(a, bi) for bi in b]
+    elif isinstance(b, list):
+        # Both are flat lists
+        return [item for item in a if not item_in(item, b)]
     else:
-        # If a or b is not a list, just return a (should not happen in this DSL)
-        return a
+        # b is not even a list
+        return [item for item in a if item != b]
 
 def arg_min(arg_list: List[int], val_list: List[int] = None) -> List[int]:
     
