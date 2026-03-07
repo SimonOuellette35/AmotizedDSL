@@ -70,13 +70,19 @@ class GridObject:
             self.width = 0
 
     def __eq__(self, other):
-        a_cells = self.cells_as_numpy()
-        b_cells = other.cells_as_numpy()
-
-        if a_cells.shape != b_cells.shape:
+        if not isinstance(other, GridObject):
+            return NotImplemented
+        if len(self.pixels) != len(other.pixels):
             return False
-
-        return np.array_equal(a_cells, b_cells)
+        other_remaining = list(other.pixels)
+        for p in self.pixels:
+            for i, q in enumerate(other_remaining):
+                if p == q:
+                    other_remaining.pop(i)
+                    break
+            else:
+                return False
+        return True
 
     @staticmethod
     def from_grid(cells, ul_x = 0, ul_y = 0):
