@@ -1,4 +1,4 @@
-from typing import List, TypeVar, Union
+from typing import List, TypeVar, Union, Optional
 import numpy as np
 import math
 import copy
@@ -1015,29 +1015,26 @@ def equal(a: Union[int, List[int], List[List[int]], List[GridObject]], b: Union[
     else:
         return equal1(a, b)
 
-
-def not_equal(a: Union[int, List[int]], b: Union[int, List[int]]) -> Union[bool, List[bool]]:
-    def not_equal1(a: int, b: int) -> bool:
-        return a != b
-
-    def not_equal2(a: List[int], b: int) -> List[bool]:
-        output = []
-        for tmp_a in a:
-            output.append(tmp_a != b)
-
-        return output
-
-    if isinstance(a, List):
-        if isinstance(a[0], List):
-            output = []
-            for idx in range(len(a)):
-                output.append(not_equal2(a[idx], b[idx]))
-            
-            return output
-        else:
-            return not_equal2(a, b)
+def not_equal(a, b):
+    """
+    Compares `a` and `b` for inequality.
+    Supports int, float, str, list, list of lists, GridObject, list of GridObject, etc.
+    Returns the same structure as the equality function, but with negated values.
+    """
+    res = equal(a, b)
+    # If the result is a bool, just negate it
+    if isinstance(res, bool):
+        return not res
+    # If it's a numpy array (for image/grid comparisons)
+    if hasattr(res, "shape"):
+        import numpy as np
+        return np.logical_not(res)
+    # If it's a list (including nested lists), recursively negate
+    elif isinstance(res, list):
+        return [not_equal(val, False) if isinstance(val, bool) else not_equal(val, False) if isinstance(val, (list,)) else not val for val in res]
     else:
-        return not_equal1(a, b)
+        # For any other types: just use Python's not-equal
+        return a != b
 
 def greater_than(a: int, b: int) -> bool:
     if a > b:
@@ -1380,7 +1377,7 @@ def arg_max(arg_list: List[int], val_list: List[int] = None) -> List[int]:
         max_idx = val_list.index(max_val)
         return arg_list[max_idx]
 
-def logical_or(a: Union[bool, List[bool]], b: Union[bool, List[bool]]) -> Union[bool, List[bool]]:
+def logical_or_pairwise(a: Union[bool, List[bool]], b: Union[bool, List[bool]]) -> Union[bool, List[bool]]:
     if isinstance(a, List) and isinstance(b, List):
         # List vs List: pairwise OR
         if len(a) != len(b):
@@ -1404,7 +1401,32 @@ def logical_or(a: Union[bool, List[bool]], b: Union[bool, List[bool]]) -> Union[
         # Single vs Single: simple OR
         return a or b
 
-def logical_and(a: Union[bool, List[bool], List[List[bool]]], b: Union[bool, List[bool], List[List[bool]]]) -> Union[bool, List[bool]]:
+def logical_or_reduce(lst: Union[List[bool], List[List[bool]]]) -> Union[bool, List[bool]]:
+    if isinstance(lst, list) and len(lst) > 0 and isinstance(lst[0], list):
+        # lst is a list of list of booleans
+        num_cols = len(lst[0])
+        output = []
+        for j in range(num_cols):
+            or_val = False
+            for i in range(len(lst)):
+                or_val = or_val or lst[i][j]
+            output.append(or_val)
+    else:
+        # lst is a list of booleans
+        output = False
+        for elem in lst:
+            output = output or elem
+
+
+    return output
+
+def logical_or(a: Union[bool, List[bool]], b: Optional[Union[bool, List[bool]]] = None) -> Union[bool, List[bool]]:
+    if b is None:
+        return logical_or_reduce(a)
+    else:
+        return logical_or_pairwise(a, b)
+
+def logical_and_pairwise(a: Union[bool, List[bool], List[List[bool]]], b: Union[bool, List[bool], List[List[bool]]]) -> Union[bool, List[bool]]:
     if isinstance(a, List) and isinstance(b, List):
         if isinstance(a[0], List) and isinstance(b[0], List):
             return [
@@ -1427,7 +1449,31 @@ def logical_and(a: Union[bool, List[bool], List[List[bool]]], b: Union[bool, Lis
         # Single vs Single: simple AND
         return a and b
 
-def logical_xor(a: Union[bool, List[bool]], b: Union[bool, List[bool]]) -> Union[bool, List[bool]]:
+def logical_and_reduce(lst: Union[List[bool], List[List[bool]]]) -> Union[bool, List[bool]]:
+    if isinstance(lst, list) and len(lst) > 0 and isinstance(lst[0], list):
+        # lst is a list of list of booleans
+        num_cols = len(lst[0])
+        output = []
+        for j in range(num_cols):
+            and_val = True
+            for i in range(len(lst)):
+                and_val = and_val and lst[i][j]
+            output.append(and_val)
+    else:
+        # lst is a list of booleans
+        output = True
+        for elem in lst:
+            output = output and elem
+
+    return output
+
+def logical_and(a: Union[bool, List[bool]], b: Optional[Union[bool, List[bool]]] = None) -> Union[bool, List[bool]]:
+    if b is None:
+        return logical_and_reduce(a)
+    else:
+        return logical_and_pairwise(a, b)
+
+def logical_xor_pairwise(a: Union[bool, List[bool]], b: Union[bool, List[bool]]) -> Union[bool, List[bool]]:
     if isinstance(a, List) and isinstance(b, List):
         # List vs List: pairwise XOR
         if len(a) != len(b):
@@ -1442,6 +1488,31 @@ def logical_xor(a: Union[bool, List[bool]], b: Union[bool, List[bool]]) -> Union
     else:
         # Single vs Single: simple XOR
         return a ^ b
+
+def logical_xor_reduce(lst: Union[List[bool], List[List[bool]]]) -> Union[bool, List[bool]]:
+    if isinstance(lst, list) and len(lst) > 0 and isinstance(lst[0], list):
+        # lst is a list of list of booleans
+        num_cols = len(lst[0])
+        output = []
+        for j in range(num_cols):
+            xor_val = False
+            for i in range(len(lst)):
+                xor_val = xor_val ^ lst[i][j]
+            output.append(xor_val)
+    else:
+        # lst is a list of booleans
+        output = False
+        for elem in lst:
+            output = output ^ elem
+
+    return output
+
+
+def logical_xor(a: Union[bool, List[bool]], b: Optional[Union[bool, List[bool]]] = None) -> Union[bool, List[bool]]:
+    if b is None:
+        return logical_xor_reduce(a)
+    else:
+        return logical_xor_pairwise(a, b)
 
 def neighbours4(grid: Union[GridObject, List[GridObject]]) -> Union[List[List[Pixel]], List[List[List[Pixel]]]]:
 
@@ -1736,6 +1807,9 @@ def set_color(grid: Union[GridObject, List[GridObject]], c_values: Union[int, Li
         return GridObject(new_pixels, grid.ul_x, grid.ul_y)
     
     if isinstance(grid, GridObject):
+        print("set_grid_c")
+        print(f"grid: {grid}")
+        print(f"c_values: {c_values}")
         return set_grid_c(grid, c_values)
     else:
         grid_list = []
