@@ -1,7 +1,6 @@
 from typing import List, TypeVar, Union, Optional
 import numpy as np
 import math
-import copy
 from collections import Counter
 import collections
 
@@ -504,7 +503,7 @@ def get_bg(grid: GridObject, obj_mask: List[List[int]]) -> GridObject:
 def get_width(g: Union[GridObject, List[GridObject], List[List[GridObject]]]) -> Union[DIM, List[DIM]]:
     if isinstance(g, GridObject):
         return g.width
-    elif isinstance(g[0], GridObject):
+    elif isinstance(g, list) and len(g) > 0 and isinstance(g[0], GridObject):
         widths = []
         for grid in g:
             widths.append(grid.width)
@@ -521,7 +520,7 @@ def get_width(g: Union[GridObject, List[GridObject], List[List[GridObject]]]) ->
 def get_height(g: Union[GridObject, List[GridObject], List[List[GridObject]]]) -> Union[DIM, List[DIM]]:
     if isinstance(g, GridObject):
         return g.height
-    elif isinstance(g[0], GridObject):
+    elif isinstance(g, list) and len(g) > 0 and isinstance(g[0], GridObject):
         heights = []
         for grid in g:
             heights.append(grid.height)
@@ -536,8 +535,8 @@ def get_height(g: Union[GridObject, List[GridObject], List[List[GridObject]]]) -
         return heights
 
 def unique(data: Union[List[int], List[List[int]], List[List[List[int]]]]) -> Union[List[int], List[List[int]], List[List[List[int]]]]:
-    if isinstance(data[0], List):
-        if isinstance(data[0][0], List):
+    if isinstance(data, List) and len(data) > 0 and isinstance(data[0], List):
+        if len(data[0]) > 0 and isinstance(data[0][0], List):
             unique_sets = []
             for inner_list in data:
                 unique_set_list = []
@@ -561,7 +560,7 @@ def get_x(p: Union[Pixel, List[Pixel], List[List[Pixel]]]) -> Union[COLOR, List[
         x_value_lists = []
         for px_list in p:
             x_values = []
-            if isinstance(px_list[0], List):
+            if len(px_list) > 0 and isinstance(px_list[0], List):
                 for px_inner_list in px_list:
                     x_value_list = []
                     for px in px_inner_list:
@@ -588,7 +587,7 @@ def get_y(p: Union[Pixel, List[Pixel], List[List[Pixel]]]) -> Union[COLOR, List[
         y_value_lists = []
         for px_list in p:
             y_values = []
-            if isinstance(px_list[0], List):
+            if len(px_list) > 0 and isinstance(px_list[0], List):
                 for px_inner_list in px_list:
                     y_value_list = []
                     for px in px_inner_list:
@@ -693,8 +692,8 @@ def less_than(a: Union[int, List[int], List[List[int]]], b: Union[int, List[int]
 
 # Simply returns the length of the sequence.
 def count_items(data_list: Union[List[T], List[List[T]], List[List[List[T]]]]) -> Union[int, List[int], List[List[int]]]:
-    if isinstance(data_list[0], List):
-        if isinstance(data_list[0][0], List):
+    if isinstance(data_list, List) and len(data_list) > 0 and isinstance(data_list[0], List):
+        if len(data_list[0]) > 0 and isinstance(data_list[0][0], List):
             len_list = []
             for inner_list in data_list:
                 len_inner_list = []
@@ -734,7 +733,7 @@ def count_values(values: List[int], data_list: Union[List[int], GridObject]) -> 
 def sin_half_pi(val: Union[int, List[int]]) -> Union[int, List[int], List[List[int]]]:
     # sin(pi/2 * val)
     if isinstance(val, List):
-        if isinstance(val[0], List):
+        if len(val) > 0 and isinstance(val[0], List):
             output_list_list = []
             for object_idx in range(len(val)):
                 object_list = []
@@ -756,7 +755,7 @@ def sin_half_pi(val: Union[int, List[int]]) -> Union[int, List[int], List[List[i
 def cos_half_pi(val: Union[int, List[int]]) -> Union[int, List[int]]:
     # cos(pi/2 * val)
     if isinstance(val, List):
-        if isinstance(val[0], List):
+        if len(val) > 0 and isinstance(val[0], List):
             output_list_list = []
             for object_idx in range(len(val)):
                 object_list = []
@@ -777,7 +776,7 @@ def cos_half_pi(val: Union[int, List[int]]) -> Union[int, List[int]]:
 
 def addition(a: Union[int, List[int], List[List[int]], List[List[List[int]]]], 
              b: Union[int, List[int], List[List[int]]]) -> Union[int, List[int]]:
-    if isinstance(a, List) and isinstance(a[0], List) and isinstance(a[0][0], List)and isinstance(b, List) and isinstance(b[0], List):
+    if isinstance(a, List) and len(a) > 0 and isinstance(a[0], List) and len(a[0]) > 0 and isinstance(a[0][0], List)and isinstance(b, List) and len(b) > 0 and isinstance(b[0], List):
         output_sum_lists = []
         for list_idx in range(len(a)):
             output_sums = []
@@ -786,7 +785,7 @@ def addition(a: Union[int, List[int], List[List[int]], List[List[List[int]]]],
             
             output_sum_lists.append(output_sums)
         return output_sum_lists
-    elif isinstance(a, List) and isinstance(a[0], List) and isinstance(b, List) and isinstance(b[0], List) and isinstance(b[0], List):
+    elif isinstance(a, List) and len(a) > 0 and isinstance(a[0], List) and isinstance(b, List) and len(b) > 0 and isinstance(b[0], List):
         output_sum_lists = []
         for list_idx in range(len(a)):
             output_sums = []
@@ -795,7 +794,7 @@ def addition(a: Union[int, List[int], List[List[int]], List[List[List[int]]]],
             
             output_sum_lists.append(output_sums)
         return output_sum_lists
-    elif isinstance(a, List) and isinstance(a[0], List) and isinstance(b, List):
+    elif isinstance(a, List) and len(a) > 0 and isinstance(a[0], List) and isinstance(b, List):
         output_sum_lists = []
         for list_idx in range(len(a)):
             output_sums = []
@@ -803,7 +802,7 @@ def addition(a: Union[int, List[int], List[List[int]], List[List[List[int]]]],
                 output_sums.append(a[list_idx][elem_idx] + b[list_idx])
             output_sum_lists.append(output_sums)
         return output_sum_lists
-    elif isinstance(b, List) and isinstance(b[0], List) and isinstance(a, List):
+    elif isinstance(b, List) and len(b) > 0 and isinstance(b[0], List) and isinstance(a, List):
         output_sum_lists = []
         for list_idx in range(len(b)):
             output_sums = []
@@ -816,7 +815,7 @@ def addition(a: Union[int, List[int], List[List[int]], List[List[List[int]]]],
         for idx in range(len(a)):
             output_sums.append(a[idx] + b[idx])
         return output_sums
-    elif isinstance(a, List) and isinstance(a[0], List):
+    elif isinstance(a, List) and len(a) > 0 and isinstance(a[0], List):
         object_sums = []
         for obj_idx in range(len(a)):
             output_sums = []
@@ -842,7 +841,7 @@ def addition(a: Union[int, List[int], List[List[int]], List[List[List[int]]]],
 def subtraction(a: Union[int, List[int], List[List[int]]], 
                 b: Union[int, List[int], List[List[int]]]) -> Union[int, List[int]]:
     
-    if isinstance(a, List) and isinstance(a[0], List) and isinstance(b, List) and isinstance(b[0], List):
+    if isinstance(a, List) and len(a) > 0 and isinstance(a[0], List) and isinstance(b, List) and len(b) > 0 and isinstance(b[0], List):
         output_subs_lists = []
         for list_idx in range(len(a)):
             output_subs = []
@@ -852,7 +851,7 @@ def subtraction(a: Union[int, List[int], List[List[int]]],
             
             output_subs_lists.append(output_subs)
         return output_subs_lists
-    elif isinstance(a, List) and isinstance(a[0], List) and isinstance(b, List):
+    elif isinstance(a, List) and len(a) > 0 and isinstance(a[0], List) and isinstance(b, List):
         output_sub_lists = []
         for list_idx in range(len(a)):
             output_subs = []
@@ -861,7 +860,7 @@ def subtraction(a: Union[int, List[int], List[List[int]]],
                 output_subs.append(result)
             output_sub_lists.append(output_subs)
         return output_sub_lists
-    elif isinstance(b, List) and isinstance(b[0], List) and isinstance(a, List):
+    elif isinstance(b, List) and len(b) > 0 and isinstance(b[0], List) and isinstance(a, List):
         output_sub_lists = []
         for list_idx in range(len(b)):
             output_subs = []
@@ -879,7 +878,7 @@ def subtraction(a: Union[int, List[int], List[List[int]]],
     elif isinstance(a, List):
         output_subs = []
         for idx in range(len(a)):
-            if isinstance(a[0], List):
+            if len(a) > 0 and isinstance(a[0], List):
                 output_lists = []
                 for inner_idx in range(len(a[idx])):
                     output_lists.append(a[idx][inner_idx] - b)
@@ -890,7 +889,7 @@ def subtraction(a: Union[int, List[int], List[List[int]]],
                 output_subs.append(result)
         return output_subs
     elif isinstance(b, List):
-        if isinstance(b[0], List):
+        if len(b) > 0 and isinstance(b[0], List):
             object_list = []
             for obj_idx in range(len(b)):
                 output_subs = []
@@ -996,11 +995,11 @@ def equal(a: Union[int, List[int], List[List[int]], List[GridObject]], b: Union[
         return output
 
     if isinstance(a, List):
-        if isinstance(a[0], List):
+        if len(a) > 0 and isinstance(a[0], List):
             output = []
             for idx in range(len(a)):
                 if isinstance(b, List):
-                    if isinstance(b[0], List):
+                    if len(b) > 0 and isinstance(b[0], List):
                         output.append(equal3(a[idx], b[idx]))
                     else:
                         output.append(equal2(a[idx], b[idx]))
@@ -1213,7 +1212,7 @@ def switch(conditions, operations, otherwise):
             for cond_idx in range(len(conditions)):
                 inner_conditions.append(conditions[cond_idx][elem_idx])
 
-            if isinstance(operations[0], List):
+            if isinstance(operations, List) and len(operations) > 0 and isinstance(operations[0], List):
                 for cond_idx in range(len(conditions)):
                     inner_operations.append(operations[cond_idx][elem_idx])
             else:
@@ -1231,7 +1230,9 @@ def switch(conditions, operations, otherwise):
 
     # Overloading for list processing. Here, we differentiate the 3 main cases: one single constant condtion,
     # 1 list condition, or many if "branches" (if/elif/elif/.../else).
-    if isinstance(conditions[0], List) or isinstance(conditions[0], np.ndarray):
+    if (isinstance(conditions, List) or isinstance(conditions, np.ndarray)) and len(conditions) > 0 and (
+        isinstance(conditions[0], List) or isinstance(conditions[0], np.ndarray)
+    ):
         if len(conditions) > 1:
             # Here we have many conditions.
             return switch_many_lists(conditions, operations, otherwise)
@@ -1382,7 +1383,7 @@ def logical_or_pairwise(a: Union[bool, List[bool]], b: Union[bool, List[bool]]) 
         # List vs List: pairwise OR
         if len(a) != len(b):
             raise ValueError("Lists must have same length for pairwise OR")
-        if isinstance(a[0], List) and isinstance(b[0], List):
+        if len(a) > 0 and len(b) > 0 and isinstance(a[0], List) and isinstance(b[0], List):
             result = []
             for obj_idx in range(len(a)):
                 obj_result = [a[obj_idx][i] or b[obj_idx][i] for i in range(len(a[obj_idx]))]
@@ -1428,7 +1429,7 @@ def logical_or(a: Union[bool, List[bool]], b: Optional[Union[bool, List[bool]]] 
 
 def logical_and_pairwise(a: Union[bool, List[bool], List[List[bool]]], b: Union[bool, List[bool], List[List[bool]]]) -> Union[bool, List[bool]]:
     if isinstance(a, List) and isinstance(b, List):
-        if isinstance(a[0], List) and isinstance(b[0], List):
+        if len(a) > 0 and len(b) > 0 and isinstance(a[0], List) and isinstance(b[0], List):
             return [
                 [
                     a[i][j] and b[i][j] for j in range(len(a[i]))
@@ -1689,8 +1690,15 @@ def set_pixels(target_grid: Union[GridObject, List[GridObject]],
             shift_y = -min_y if min_y < 0 else 0
 
             # Adjust max_x and max_y to account for negative indices
-            max_x = max(target_grid.width + shift_x, int(np.max(set_x)) + 1 + shift_x)
-            max_y = max(target_grid.height + shift_y, int(np.max(set_y)) + 1 + shift_y)
+            if len(set_x) > 0:
+                max_x = max(target_grid.width + shift_x, int(np.max(set_x)) + 1 + shift_x)
+            else:
+                max_x = target_grid.max_x
+            if len(set_y) > 0:
+                max_y = max(target_grid.height + shift_y, int(np.max(set_y)) + 1 + shift_y)
+            else:
+                max_y = target_grid.max_x
+
             new_cells = np.zeros((max_y, max_x), dtype=int)
 
             # Get the original grid as numpy array once (much faster than accessing .cells property)
@@ -1740,7 +1748,7 @@ def set_pixels(target_grid: Union[GridObject, List[GridObject]],
             output_grids.append(tmp_out)
 
         return output_grids
-    elif isinstance(set_x, List) and isinstance(set_x[0], List):
+    elif isinstance(set_x, List) and len(set_x) > 0 and isinstance(set_x[0], List):
         # In this case, there is one Grid instance, but we have a list of lists to set.
         # Flatten all operations and batch them for better performance
         all_x = []
@@ -1807,9 +1815,6 @@ def set_color(grid: Union[GridObject, List[GridObject]], c_values: Union[int, Li
         return GridObject(new_pixels, grid.ul_x, grid.ul_y)
     
     if isinstance(grid, GridObject):
-        print("set_grid_c")
-        print(f"grid: {grid}")
-        print(f"c_values: {c_values}")
         return set_grid_c(grid, c_values)
     else:
         grid_list = []
@@ -1885,7 +1890,7 @@ def max_x(g: Union[GridObject, List[GridObject], List[List[GridObject]]]) -> Uni
 def max_y(g: Union[GridObject, List[GridObject], List[List[GridObject]]]) -> Union[DIM, List[DIM]]:
     if isinstance(g, GridObject):
         return g.max_y
-    elif isinstance(g[0], GridObject):
+    elif isinstance(g, List) and len(g) > 0 and isinstance(g[0], GridObject):
         output = []
         for tmp_g in g:
             output.append(tmp_g.max_y)
