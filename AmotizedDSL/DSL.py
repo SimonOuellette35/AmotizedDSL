@@ -1024,13 +1024,14 @@ def not_equal(a, b):
     # If the result is a bool, just negate it
     if isinstance(res, bool):
         return not res
+
     # If it's a numpy array (for image/grid comparisons)
     if hasattr(res, "shape"):
-        import numpy as np
         return np.logical_not(res)
+
     # If it's a list (including nested lists), recursively negate
     elif isinstance(res, list):
-        return [not_equal(val, False) if isinstance(val, bool) else not_equal(val, False) if isinstance(val, (list,)) else not val for val in res]
+        return [not bool_val for bool_val in res]
     else:
         # For any other types: just use Python's not-equal
         return a != b
