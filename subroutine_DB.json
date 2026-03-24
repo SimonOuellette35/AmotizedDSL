@@ -47,5 +47,5 @@
     "parameters": ["GridObject", "GridObject"],
     "returns": "GridObject",
     "validated": true
-  },
+  }
 ]
