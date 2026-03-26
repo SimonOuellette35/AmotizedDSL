@@ -33,10 +33,21 @@ def test_expand_subroutine():
         'del(N+0)'
     ]    
 
+    prog5 = [
+        'get_objects(N+0)',
+        'get_bg(N+0)',
+        'del(N+0)',
+        'rot90(N+0)',
+        'del(N+0)',
+        'rebuild_grid(N+0, N+1)',
+        'del(N+0)',
+        'del(N+0)'
+    ]
     prog1_expanded = pi.expand_subroutines(prog1)
     prog2_expanded = pi.expand_subroutines(prog2)
     prog3_expanded = pi.expand_subroutines(prog3)
     prog4_expanded = pi.expand_subroutines(prog4)
+    prog5_expanded = pi.expand_subroutines(prog5)
 
     expected_prog1 = [
         'set_y(N+0, N+0.x)',
@@ -133,12 +144,23 @@ def test_expand_subroutine():
         'del(N+0)'
     ]            
 
-    print(f"prog1_expanded: {prog1_expanded}")
-    print(f"prog2_expanded: {prog2_expanded}")
-    print(f"prog3_expanded: {prog3_expanded}")
-    print(f"prog4_expanded: {prog4_expanded}")
-    
+    expected_prog5 = [
+        "get_objects(N+0)",
+        "get_bg(N+0)",
+        "del(N+0)",
+        "set_y(N+0, N+0.x)",
+        "sub(N+0.max_y, N+0.y)",
+        "del(N+0)",
+        "set_x(N+1, N+2)",
+        "del(N+1)",
+        "del(N+1)",
+        "rebuild_grid(N+0, N+1)",
+        "del(N+0)",
+        "del(N+0)"
+    ]
+
     assert prog1_expanded == expected_prog1, "prog1 does not match expected_prog1"
     assert prog2_expanded == expected_prog2, "prog2 does not match expected_prog2"
     assert prog3_expanded == expected_prog3, "prog3 does not match expected_prog3"
     assert prog4_expanded == expected_prog4, "prog4 does not match expected_prog4"
+    assert prog5_expanded == expected_prog5, "prog5 does not match expected_prog5"

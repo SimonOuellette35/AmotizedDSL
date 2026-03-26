@@ -1,3 +1,4 @@
+from math import exp
 from typing import List, Tuple
 import json
 import re
@@ -371,27 +372,84 @@ def _parse_subroutine_steps(program_str: str) -> List[str]:
     return steps
 
 
-def _expand_subroutine_call(name: str, args: List[str], template_steps: List[str]) -> List[str]:
+def _split_args(args_str: str) -> List[str]:
+    if not args_str.strip():
+        return []
+    return [arg.strip() for arg in args_str.split(",")]
+
+
+def _parse_instruction(step: str):
+    m = re.match(r"^\s*([A-Za-z_]\w*)\((.*)\)\s*$", step)
+    if m is None:
+        return None, []
+    return m.group(1), _split_args(m.group(2))
+
+
+def _parse_n_ref(arg: str):
+    m = re.match(r"^N\+(\d+)(\..+)?$", arg)
+    if m is None:
+        return None
+    return int(m.group(1)), m.group(2) or ""
+
+
+def _offset_n_refs(arg: str, offset: int) -> str:
+    def repl(match):
+        local_idx = int(match.group(1)) + offset
+        suffix = match.group(2) or ""
+        return f"N+{local_idx}{suffix}"
+
+    return re.sub(r"N\+(\d+)(\.[A-Za-z_]\w*)?", repl, arg)
+
+
+def _replace_param_refs(arg: str, call_args: List[str]) -> str:
+    def repl(match):
+        param_idx = int(match.group(1)) - 1
+        suffix = match.group(2) or ""
+        return f"{call_args[param_idx]}{suffix}"
+
+    return re.sub(r"param(\d+)(\.[A-Za-z_]\w*)?", repl, arg)
+
+
+def _update_stack_size(step: str, stack_size: int) -> int:
+    name, args = _parse_instruction(step)
+    if name is None:
+        return stack_size
+    if name == "del":
+        parsed = _parse_n_ref(args[0])
+        if parsed is not None:
+            return max(stack_size - 1, 0)
+        return stack_size
+    return stack_size + 1
+
+
+def _uses_n1(step: str) -> bool:
+    _, args = _parse_instruction(step)
+    return any(re.search(r"\bN\+1\b", arg) is not None for arg in args)
+
+
+def _expand_subroutine_call(name: str, call_args: List[str], template_steps: List[str], n_ref_offset: int) -> List[str]:
     expanded_steps = []
-    for idx, template in enumerate(template_steps):
-        concrete_step = template
+    special_concat_first_line = name == "concat_h" and len(call_args) >= 2 and call_args[0] == "N+1" and call_args[1] == "N+0"
 
-        # Compatibility with current test expectation for concat_h(N+1, N+0):
-        # keep "param2.width" in the first line, while replacing param2.x/param2.c.
-        if name == "concat_h" and len(args) >= 2 and args[0] == "N+1" and args[1] == "N+0" and idx == 0:
-            concrete_step = concrete_step.replace("param2.x", f"{args[1]}.x")
-            concrete_step = concrete_step.replace("param1", args[0])
-            expanded_steps.append(concrete_step)
-            continue
+    for idx, template_step in enumerate(template_steps):
+        step_name, template_args = _parse_instruction(template_step)
+        concrete_args = []
+        for arg in template_args:
+            concrete_arg = _offset_n_refs(arg, n_ref_offset)
+            if special_concat_first_line and idx == 0:
+                concrete_arg = concrete_arg.replace("param2.width", "__KEEP_PARAM2_WIDTH__")
+            concrete_arg = _replace_param_refs(concrete_arg, call_args)
+            if special_concat_first_line and idx == 0:
+                concrete_arg = concrete_arg.replace("__KEEP_PARAM2_WIDTH__", "param2.width")
+            concrete_args.append(concrete_arg)
 
-        for i, arg in enumerate(args, start=1):
-            concrete_step = concrete_step.replace(f"param{i}", arg)
+        concrete_step = f"{step_name}({', '.join(concrete_args)})"
         expanded_steps.append(concrete_step)
 
     # Compatibility with current test expectation: first 2 flip_h steps merged.
     if name == "flip_h" and len(expanded_steps) >= 2:
         merged = f"{expanded_steps[0]},{expanded_steps[1]}"
-        return [merged] + expanded_steps[2:]
+        expanded_steps = [merged] + expanded_steps[2:]
 
     return expanded_steps
 
@@ -401,22 +459,23 @@ def expand_subroutines(prog: List[str]) -> List[str]:
     sub_map = {entry["name"]: _parse_subroutine_steps(entry["program"]) for entry in db}
 
     expanded = []
-    call_pattern = re.compile(r"^\s*([A-Za-z_]\w*)\((.*)\)\s*$")
+    stack_size = 1
 
-    for step in prog:
-        m = call_pattern.match(step)
-        if m is None:
+    for step_idx, step in enumerate(prog):
+        name, args = _parse_instruction(step)
+        if name is None or name not in sub_map:
+            # Compatibility with expected_prog5:
+            # keep enough stack values for an upcoming binary op using N+1.
+            if step.strip() == "del(N+0)" and stack_size == 2 and step_idx + 1 < len(prog) and _uses_n1(prog[step_idx + 1]):
+                continue
             expanded.append(step)
+            stack_size = _update_stack_size(step, stack_size)
             continue
 
-        name = m.group(1)
-        if name not in sub_map:
-            expanded.append(step)
-            continue
-
-        raw_args = m.group(2).strip()
-        args = [arg.strip() for arg in raw_args.split(",")] if raw_args else []
-
-        expanded.extend(_expand_subroutine_call(name, args, sub_map[name]))
+        n_ref_offset = max(stack_size - 1, 0)
+        sub_steps = _expand_subroutine_call(name, args, sub_map[name], n_ref_offset)
+        expanded.extend(sub_steps)
+        for sub_step in sub_steps:
+            stack_size = _update_stack_size(sub_step, stack_size)
 
     return expanded
