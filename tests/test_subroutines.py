@@ -100,7 +100,7 @@ def test_expand_subroutine():
 
     expected_prog4 = [
         # flip_h(N+0)
-        'sub(N+0.max_x, N+0.x),'
+        'sub(N+0.max_x, N+0.x)',
         'set_pixels(N+0, N+1, N+0.y, N+0.c)',
         'del(N+0)',
         'del(N+0)',

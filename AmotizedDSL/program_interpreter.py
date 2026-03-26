@@ -446,11 +446,6 @@ def _expand_subroutine_call(name: str, call_args: List[str], template_steps: Lis
         concrete_step = f"{step_name}({', '.join(concrete_args)})"
         expanded_steps.append(concrete_step)
 
-    # Compatibility with current test expectation: first 2 flip_h steps merged.
-    if name == "flip_h" and len(expanded_steps) >= 2:
-        merged = f"{expanded_steps[0]},{expanded_steps[1]}"
-        expanded_steps = [merged] + expanded_steps[2:]
-
     return expanded_steps
 
 
