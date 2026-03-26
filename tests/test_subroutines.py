@@ -133,7 +133,12 @@ def test_expand_subroutine():
         'del(N+0)'
     ]            
 
-    assert prog1 == expected_prog1, "prog1 does not match expected_prog1"
-    assert prog2 == expected_prog2, "prog2 does not match expected_prog2"
-    assert prog3 == expected_prog3, "prog3 does not match expected_prog3"
-    assert prog4 == expected_prog4, "prog4 does not match expected_prog4"
+    print(f"prog1_expanded: {prog1_expanded}")
+    print(f"prog2_expanded: {prog2_expanded}")
+    print(f"prog3_expanded: {prog3_expanded}")
+    print(f"prog4_expanded: {prog4_expanded}")
+    
+    assert prog1_expanded == expected_prog1, "prog1 does not match expected_prog1"
+    assert prog2_expanded == expected_prog2, "prog2 does not match expected_prog2"
+    assert prog3_expanded == expected_prog3, "prog3 does not match expected_prog3"
+    assert prog4_expanded == expected_prog4, "prog4 does not match expected_prog4"
