@@ -2,49 +2,65 @@
   {
     "name": "rot90",
     "program": "[\n  set_y(param1, param1.x),\n  sub(param1.max_y, param1.y),\n  del(param1),\n  set_x(N+0, N+1),\n  del(N+0),\n  del(N+0)\n]",
-    "parameters": ["GridObject"],
+    "parameters": [
+      "GridObject"
+    ],
     "returns": "GridObject",
     "validated": true
   },
   {
     "name": "rot180",
     "program": "[\n  sub(param1.max_x, param1.x),\n  set_x(param1, N+1),\n  del(N+1),\n  sub(param1.max_y, param1.y),\n  del(param1),\n  set_y(N+0, N+1),\n  del(N+0),\n  del(N+0)\n]",
-    "parameters": ["GridObject"],
-    "returns": "GridObject",    
+    "parameters": [
+      "GridObject"
+    ],
+    "returns": "GridObject",
     "validated": true
   },
   {
     "name": "rot270",
     "program": "[\n  set_x(param1, param1.y),\n  sub(param1.max_x, param1.x),\n  del(param1),\n  set_y(N+0, N+1),\n  del(N+0),\n  del(N+0)\n]",
-    "parameters": ["GridObject"],
-    "returns": "GridObject",    
+    "parameters": [
+      "GridObject"
+    ],
+    "returns": "GridObject",
     "validated": true
   },
   {
     "name": "flip_h",
-    "program": "[\n  sub(param1.max_x, param1.x),\n  set_pixels(param1, N+1, param1.y, param1.c),\n  del(param1),\n  del(N+0)\n]",
-    "parameters": ["GridObject"],
-    "returns": "GridObject",    
+    "program": "[\n  sub(param1.max_x, param1.x),\n  set_x(param1, N+1)  \n  del(param1),\n  del(N+0)\n]",
+    "parameters": [
+      "GridObject"
+    ],
+    "returns": "GridObject",
     "validated": true
   },
   {
     "name": "flip_v",
-    "program": "[\n  sub(param1.max_y, param1.y),\n  set_pixels(param1, param1.x, N+1, param1.c),\n  del(param1),\n  del(N+0)\n]",
-    "parameters": ["GridObject"],
-    "returns": "GridObject",    
+    "program": "[\n  sub(param1.max_y, param1.y),\n  set_y(param1, N+1),\n  del(param1),\n  del(N+0)\n]",
+    "parameters": [
+      "GridObject"
+    ],
+    "returns": "GridObject",
     "validated": true
   },
   {
     "name": "concat_h",
-    "program": "[\n  add(param2.width, param2.x),\n  set_pixels(param1, N+2, param1.y, param2.c),\n  del(N+0),\n  del(N+0),\n  del(N+0)\n]",
-    "parameters": ["GridObject", "GridObject"],
+    "program": "[\n  add(param2.width, param2.x),\n  set_pixels(param1, N+1, param1.y, param2.c)\n]",
+    "parameters": [
+      "GridObject",
+      "GridObject"
+    ],
     "returns": "GridObject",
     "validated": true
   },
   {
     "name": "concat_v",
-    "program": "[\n  add(param2.height, param2.y),\n  set_pixels(param1, param1.x, N+2, param2.c),\n  del(N+0),\n  del(N+0),\n  del(N+0)\n]",
-    "parameters": ["GridObject", "GridObject"],
+    "program": "[\n  add(param2.height, param2.y),\n  set_pixels(param1, param1.x, N+1, param2.c)\n]",
+    "parameters": [
+      "GridObject",
+      "GridObject"
+    ],
     "returns": "GridObject",
     "validated": true
   }
