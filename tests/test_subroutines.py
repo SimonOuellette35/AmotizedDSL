@@ -43,11 +43,28 @@ def test_expand_subroutine():
         'del(N+0)',
         'del(N+0)'
     ]
+
+    prog6 = [
+        'concat_h(N+0, N+0)',
+        'del(N+1)',
+        'concat_h(N+1, N+0)',
+        'del(N+0)',
+        'del(N+0)',
+        'del(N+0)',
+        'concat_v(N+0, N+0)',
+        'del(N+1)',
+        'concat_v(N+1, N+0)',
+        'del(N+0)',
+        'del(N+0)',
+        'del(N+0)'
+    ]
+
     prog1_expanded = pi.expand_subroutines(prog1)
     prog2_expanded = pi.expand_subroutines(prog2)
     prog3_expanded = pi.expand_subroutines(prog3)
     prog4_expanded = pi.expand_subroutines(prog4)
     prog5_expanded = pi.expand_subroutines(prog5)
+    prog6_expanded = pi.expand_subroutines(prog6)
 
     expected_prog1 = [
         'set_y(N+0, N+0.x)',
@@ -110,7 +127,7 @@ def test_expand_subroutine():
         'set_pixels(N+0, N+1, N+0.y, N+1.c)',
 
         # concat_h(N+1, N+0)
-        'add(param2.width, N+0.x)',
+        'add(N+0.width, N+0.x)',
         'set_pixels(N+1, N+2, N+1.y, N+0.c)',
 
         # 2 del stements
@@ -136,7 +153,27 @@ def test_expand_subroutine():
         "set_x(N+1, N+2)",
         "del(N+1)",
         "del(N+1)",
+        "del(N+0)",
         "rebuild_grid(N+0, N+1)",
+        "del(N+0)",
+        "del(N+0)"
+    ]
+
+    expected_prog6 = [
+        "add(N+0.width, N+0.x)",
+        "set_pixels(N+0, N+1, N+0.y, N+0.c)",
+        "del(N+1)",
+        "add(N+0.width, N+0.x)",
+        "set_pixels(N+1, N+2, N+1.y, N+0.c)",
+        "del(N+0)",
+        "del(N+0)",
+        "del(N+0)",
+        "add(N+0.height, N+0.y)",
+        "set_pixels(N+0, N+0.x, N+1, N+0.c)",
+        "del(N+1)",
+        "add(N+0.height, N+0.y)",
+        "set_pixels(N+1, N+1.x, N+2, N+0.c)",
+        "del(N+0)",
         "del(N+0)",
         "del(N+0)"
     ]
@@ -146,3 +183,4 @@ def test_expand_subroutine():
     assert prog3_expanded == expected_prog3, "prog3 does not match expected_prog3"
     assert prog4_expanded == expected_prog4, "prog4 does not match expected_prog4"
     assert prog5_expanded == expected_prog5, "prog5 does not match expected_prog5"
+    assert prog6_expanded == expected_prog6, "prog6 does not match expected_prog6"

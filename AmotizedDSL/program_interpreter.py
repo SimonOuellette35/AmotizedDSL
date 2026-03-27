@@ -422,25 +422,14 @@ def _update_stack_size(step: str, stack_size: int) -> int:
     return stack_size + 1
 
 
-def _uses_n1(step: str) -> bool:
-    _, args = _parse_instruction(step)
-    return any(re.search(r"\bN\+1\b", arg) is not None for arg in args)
-
-
 def _expand_subroutine_call(name: str, call_args: List[str], template_steps: List[str], n_ref_offset: int) -> List[str]:
     expanded_steps = []
-    special_concat_first_line = name == "concat_h" and len(call_args) >= 2 and call_args[0] == "N+1" and call_args[1] == "N+0"
-
-    for idx, template_step in enumerate(template_steps):
+    for template_step in template_steps:
         step_name, template_args = _parse_instruction(template_step)
         concrete_args = []
         for arg in template_args:
             concrete_arg = _offset_n_refs(arg, n_ref_offset)
-            if special_concat_first_line and idx == 0:
-                concrete_arg = concrete_arg.replace("param2.width", "__KEEP_PARAM2_WIDTH__")
             concrete_arg = _replace_param_refs(concrete_arg, call_args)
-            if special_concat_first_line and idx == 0:
-                concrete_arg = concrete_arg.replace("__KEEP_PARAM2_WIDTH__", "param2.width")
             concrete_args.append(concrete_arg)
 
         concrete_step = f"{step_name}({', '.join(concrete_args)})"
@@ -450,19 +439,17 @@ def _expand_subroutine_call(name: str, call_args: List[str], template_steps: Lis
 
 
 def expand_subroutines(prog: List[str]) -> List[str]:
+    """Expand subroutine calls from ``subroutine_DB.json`` into primitive steps.
+    """
     db = _load_subroutine_db()
     sub_map = {entry["name"]: _parse_subroutine_steps(entry["program"]) for entry in db}
 
     expanded = []
     stack_size = 1
 
-    for step_idx, step in enumerate(prog):
+    for step in prog:
         name, args = _parse_instruction(step)
         if name is None or name not in sub_map:
-            # Compatibility with expected_prog5:
-            # keep enough stack values for an upcoming binary op using N+1.
-            if step.strip() == "del(N+0)" and stack_size == 2 and step_idx + 1 < len(prog) and _uses_n1(prog[step_idx + 1]):
-                continue
             expanded.append(step)
             stack_size = _update_stack_size(step, stack_size)
             continue
