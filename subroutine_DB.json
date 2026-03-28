@@ -28,7 +28,7 @@
   },
   {
     "name": "flip_h",
-    "program": "[\n  sub(param1.max_x, param1.x),\n  set_x(param1, N+1)  \n  del(param1),\n  del(N+0)\n]",
+    "program": "[\n  sub(param1.max_x, param1.x),\n  set_x(param1, N+1),\n  del(N+1)\n]",
     "parameters": [
       "GridObject"
     ],
@@ -37,7 +37,7 @@
   },
   {
     "name": "flip_v",
-    "program": "[\n  sub(param1.max_y, param1.y),\n  set_y(param1, N+1),\n  del(param1),\n  del(N+0)\n]",
+    "program": "[\n  sub(param1.max_y, param1.y),\n  set_y(param1, N+1),\n  del(N+1)\n]",
     "parameters": [
       "GridObject"
     ],
@@ -46,7 +46,7 @@
   },
   {
     "name": "concat_h",
-    "program": "[\n  add(param2.width, param2.x),\n  set_pixels(param1, N+1, param1.y, param2.c)\n]",
+    "program": "[\n  add(param1.width, param2.x),\n  set_pixels(param1, N+1, param2.y, param2.c)\n]",
     "parameters": [
       "GridObject",
       "GridObject"
@@ -56,7 +56,7 @@
   },
   {
     "name": "concat_v",
-    "program": "[\n  add(param2.height, param2.y),\n  set_pixels(param1, param1.x, N+1, param2.c)\n]",
+    "program": "[\n  add(param1.height, param2.y),\n  set_pixels(param1, param2.x, N+1, param2.c)\n]",
     "parameters": [
       "GridObject",
       "GridObject"
