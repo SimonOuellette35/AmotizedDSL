@@ -10,6 +10,7 @@ def test_expand_subroutine():
         'rot90(N+0)',
         'concat_h(N+0, N+1)',
         'del(N+0)',
+        'del(N+0)',
         'del(N+0)'
     ]
 
@@ -25,10 +26,13 @@ def test_expand_subroutine():
         'flip_v(N+0)',
         'del(N+0)',
         'concat_h(N+0, N+1)',
+        'del(N+2)',
         'concat_h(N+1, N+0)',
+        'del(N+3)',
         'del(N+0)',
         'del(N+0)',
         'concat_v(N+0, N+1)',
+        'del(N+0)',
         'del(N+0)',
         'del(N+0)'
     ]    
@@ -69,25 +73,20 @@ def test_expand_subroutine():
     expected_prog1 = [
         'set_y(N+0, N+0.x)',
         'sub(N+0.max_y, N+0.y)',
-        'del(N+0)',
-        'set_x(N+0, N+1)',
-        'del(N+0)',
-        'del(N+0)'
+        'set_x(N+1, N+2)',
+        'del(N+1)',
+        'del(N+1)'
     ]
 
     expected_prog2 = [
-        # rot90(N+0)
         'set_y(N+0, N+0.x)',
         'sub(N+0.max_y, N+0.y)',
+        'set_x(N+1, N+2)',
+        'del(N+1)',
+        'del(N+1)',
+        'add(N+0.width, N+1.x)',
+        'set_pixels(N+0, N+2, N+1.y, N+1.c)',
         'del(N+0)',
-        'set_x(N+0, N+1)',
-        'del(N+0)',
-        'del(N+0)',
-        # concat_h(N+0, N+1)        
-        'add(N+1.width, N+1.x)',
-        'set_pixels(N+0, N+1, N+0.y, N+1.c)',
-
-        # last 2 dels
         'del(N+0)',
         'del(N+0)'
     ]
@@ -107,40 +106,26 @@ def test_expand_subroutine():
     ]
 
     expected_prog4 = [
-        # flip_h(N+0)
-        'sub(N+0.max_x, N+0.x)',
-        'set_x(N+0, N+1)',
-        'del(N+0)',
-        'del(N+0)',
-
-        # flip_v(N+0)
-        'sub(N+0.max_y, N+0.y)',
-        'set_y(N+0, N+1)',
-        'del(N+0)',
-        'del(N+0)',
-
-        # del(N+0)
-        'del(N+0)',
-
-        # concat_h(N+0, N+1)
-        'add(N+1.width, N+1.x)',
-        'set_pixels(N+0, N+1, N+0.y, N+1.c)',
-
-        # concat_h(N+1, N+0)
-        'add(N+0.width, N+0.x)',
-        'set_pixels(N+1, N+2, N+1.y, N+0.c)',
-
-        # 2 del stements
-        'del(N+0)',
-        'del(N+0)',
-        
-        # concat_v(N+0, N+1)
-        'add(N+1.height, N+1.y)',
-        'set_pixels(N+0, N+0.x, N+2, N+1.c)',
-
-        # 2 last dels
-        'del(N+0)',
-        'del(N+0)'
+        "sub(N+0.max_x, N+0.x)",
+        "set_x(N+0, N+1)",
+        "del(N+1)",
+        "sub(N+0.max_y, N+0.y)",
+        "set_y(N+0, N+2)",
+        "del(N+2)",
+        "del(N+0)",
+        "add(N+0.width, N+1.x)",
+        "set_pixels(N+0, N+2, N+1.y, N+1.c)",
+        "del(N+2)",
+        "add(N+1.width, N+0.x)",
+        "set_pixels(N+1, N+3, N+0.y, N+0.c)",
+        "del(N+3)",
+        "del(N+0)",
+        "del(N+0)",
+        "add(N+0.height, N+1.y)",
+        "set_pixels(N+0, N+1.x, N+2, N+1.c)",
+        "del(N+0)",
+        "del(N+0)",
+        "del(N+0)"
     ]            
 
     expected_prog5 = [
@@ -149,10 +134,9 @@ def test_expand_subroutine():
         "del(N+0)",
         "set_y(N+0, N+0.x)",
         "sub(N+0.max_y, N+0.y)",
-        "del(N+0)",
-        "set_x(N+1, N+2)",
-        "del(N+1)",
-        "del(N+1)",
+        "set_x(N+2, N+3)",
+        "del(N+2)",
+        "del(N+2)",
         "del(N+0)",
         "rebuild_grid(N+0, N+1)",
         "del(N+0)",
@@ -163,16 +147,16 @@ def test_expand_subroutine():
         "add(N+0.width, N+0.x)",
         "set_pixels(N+0, N+1, N+0.y, N+0.c)",
         "del(N+1)",
-        "add(N+0.width, N+0.x)",
-        "set_pixels(N+1, N+2, N+1.y, N+0.c)",
+        "add(N+1.width, N+0.x)",
+        "set_pixels(N+1, N+2, N+0.y, N+0.c)",
         "del(N+0)",
         "del(N+0)",
         "del(N+0)",
         "add(N+0.height, N+0.y)",
         "set_pixels(N+0, N+0.x, N+1, N+0.c)",
         "del(N+1)",
-        "add(N+0.height, N+0.y)",
-        "set_pixels(N+1, N+1.x, N+2, N+0.c)",
+        "add(N+1.height, N+0.y)",
+        "set_pixels(N+1, N+0.x, N+2, N+0.c)",
         "del(N+0)",
         "del(N+0)",
         "del(N+0)"

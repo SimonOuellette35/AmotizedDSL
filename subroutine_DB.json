@@ -1,7 +1,7 @@
 [
   {
     "name": "rot90",
-    "program": "[\n  set_y(param1, param1.x),\n  sub(param1.max_y, param1.y),\n  del(param1),\n  set_x(N+0, N+1),\n  del(N+0),\n  del(N+0)\n]",
+    "program": "[\n  set_y(param1, param1.x),\n  sub(param1.max_y, param1.y),\n  set_x(N+1, N+2),\n  del(N+1),\n  del(N+1)\n]",
     "parameters": [
       "GridObject"
     ],
